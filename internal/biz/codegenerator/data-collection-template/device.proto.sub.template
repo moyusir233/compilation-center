@@ -1,0 +1,17 @@
+{{/* 定义设备配置的proto message模板，需要注入设备类别号和所有字段 */}}
+{{define "DeviceConfig" -}}
+message DeviceConfig{{.DeviceClassID}} {
+{{range $j,$field:=.Fields}}
+    {{- printf "%s %s = %d;" $field.Type $field.Name (add $j 1) | indent 4}}
+{{end -}}
+}
+{{- end}}
+
+{{/* 定义设备状态信息的proto message模板，需要注入设备类别号和所有字段 */}}
+{{define "DeviceState" -}}
+message DeviceState{{.DeviceClassID}} {
+{{range $j,$field:=.Fields}}
+    {{- printf "%s %s = %d;" $field.Type $field.Name (add $j 1) | indent 4}}
+{{end -}}
+}
+{{- end}}

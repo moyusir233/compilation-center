@@ -1,0 +1,39 @@
+syntax = "proto3";
+package kratos.api;
+
+option go_package = "gitee.com/moyusir/compilation-center/internal/conf;conf";
+
+import "google/protobuf/duration.proto";
+
+message Bootstrap {
+  Server server = 1;
+  Service service = 2;
+}
+
+message Server {
+  message GRPC {
+    string network = 1;
+    string addr = 2;
+    google.protobuf.Duration timeout = 3;
+  }
+  GRPC grpc = 1;
+}
+
+message Service{
+  message CodeGenerator{
+    // 服务相应模板文件所在的文件目录，填写绝对路径
+    string data_collection_tmpl_root=1;
+    string data_processing_tmpl_root=2;
+  }
+  message Compiler{
+    message CodeDir{
+      string project_dir=1;
+      string api_dir=2;
+      string service_dir=3;
+    }
+    CodeDir data_collection=1;
+    CodeDir data_processing=2;
+    google.protobuf.Duration timeout=3;
+  }
+  CodeGenerator code_generator = 1;
+}

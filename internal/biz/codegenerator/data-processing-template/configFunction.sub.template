@@ -1,0 +1,37 @@
+{{/* 预定义的，配置管理相关服务函数的子模板，包括grpc的服务函数和go service层的函数 */}}
+
+{{/* go函数部分 */}}
+
+{{/* 定义查询设备配置函数的模板，只需要注入DeviceClassID */}}
+{{define "GetDeviceConfig" -}}
+func (s *ConfigService) GetDeviceConfig{{.DeviceClassID}}(ctx context.Context, req *pb.GetDeviceConfigRequest) (*pb.DeviceConfig{{.DeviceClassID}}, error) {
+	// 构建查询选项
+	info := &biz.DeviceGeneralInfo{
+		DeviceID: req.DeviceId,
+		// 代码注入deviceClassID
+		DeviceClassID: {{.DeviceClassID}},
+	}
+
+	config := new(pb.DeviceConfig{{.DeviceClassID}})
+	err := s.configUsecase.GetDeviceConfig(info, config)
+	if err != nil {
+		return nil, err
+	}
+
+	return config, nil
+}
+{{- end}}
+
+{{/* grpc服务部分 */}}
+
+{{/* 查询设备配置信息的服务定义模板，需要注入DeviceClassID
+// 查询单个设备的配置信息
+*/}}
+{{define "GetDeviceConfigProto" -}}
+// 查询单个设备的配置信息
+rpc GetDeviceConfig{{.DeviceClassID}}(GetDeviceConfigRequest) returns (DeviceConfig{{.DeviceClassID}}) {
+	option (google.api.http) = {
+		get: "/configs/{{.DeviceClassID}}"
+	};
+};
+{{- end}}

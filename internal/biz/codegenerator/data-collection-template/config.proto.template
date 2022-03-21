@@ -1,0 +1,39 @@
+{{/*
+生成配置收集服务相应的服务定义，需要注入一个结构体切片，
+其中每个结构体要包含DeviceClassID字段以及Field切片Fields
+*/}}
+syntax = "proto3";
+
+package api.dataCollection.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "gitee.com/moyusir/data-collection/api/dataCollection/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.dataCollection.v1";
+
+// 配置管理服务，主要包括配置更新与配置收集
+service Config {
+{{/* 依据注入的结构体切片生成相应的服务定义 */}}
+{{- range . }}
+{{template "UpdateDeviceConfigProto" .DeviceClassID}}
+
+{{template "CreateConfigUpdateStreamProto" .DeviceClassID}}
+
+{{template "CreateInitialConfigSaveStreamProto" .DeviceClassID}}
+{{end}}
+}
+
+message ConfigServiceReply {
+    bool success = 1;
+}
+message ConfigUpdateReply{
+    // 用于客户端标识设备更新信息是否接收成功
+    bool success=1;
+    // 用于客户端告知服务端是否已经可以断开连接
+    bool end=2;
+}
+{{/* 依据注入的结构体切片生成相应的设备配置定义 */}}
+{{range .}}
+{{template "DeviceConfig" .}}
+{{end}}

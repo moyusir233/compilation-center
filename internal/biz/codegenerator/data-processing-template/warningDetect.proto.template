@@ -1,0 +1,74 @@
+{{/*
+生成预警检测服务相应的源代码，需要注入一个结构体切片，
+其中每个结构体要包含DeviceClassID字段以及包含所有预警字段的Field切片Fields
+*/}}
+syntax = "proto3";
+
+package api.dataProcessing.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+import "util/api/util/v1/general.proto";
+
+option go_package = "gitee.com/moyusir/data-processing/api/dataProcessing/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.dataProcessing.v1";
+
+// 预警检测服务，主要包括设备信息查询与推送相关的服务
+service WarningDetect {
+{{range .}}
+{{template "BatchGetDeviceStateProto" .}}
+{{end}}
+
+    // 分页查询用户的警告消息
+    rpc BatchGetWarning(BatchGetWarningRequest) returns (BatchGetWarningReply) {
+        option (google.api.http) = {
+            get: "/warnings/{page}/{count}"
+        };
+    };
+    // 查询指定设备注册的预警规则
+    rpc GetDeviceStateRegisterInfo(GetDeviceStateRegisterInfoRequest) returns (api.util.v1.DeviceStateRegisterInfo) {
+        option (google.api.http) = {
+            get: "/register-info/states/{device_class_id}"
+        };
+    };
+}
+
+// 设备状态信息分页查询请求
+message BatchGetDeviceStateRequest {
+    // 时间范围 开始时间
+    google.protobuf.Timestamp start = 1;
+    // 结束时间
+    google.protobuf.Timestamp end = 2;
+    // 分页查询
+    int64 page = 3;
+    int64 count = 4;
+}
+{{range .}}
+{{template "BatchGetDeviceStateReply" .}}
+{{end}}
+
+// 警告消息分页查询请求
+message BatchGetWarningRequest {
+    // 时间范围 开始时间
+    google.protobuf.Timestamp start = 1;
+    // 结束时间
+    google.protobuf.Timestamp end = 2;
+    // 分页查询
+    int64 page = 3;
+    int64 count = 4;
+}
+// 警告消息分页查询相应
+message BatchGetWarningReply {
+    repeated api.util.v1.Warning warnings = 1;
+}
+
+// 设备状态注册信息查询请求
+message GetDeviceStateRegisterInfoRequest {
+    // 设备类别号
+    int64 device_class_id = 1;
+}
+
+{{range .}}
+{{template "DeviceState" .}}
+{{end}}

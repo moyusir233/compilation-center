@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package api.serviceCentre.v1;
+
+import "util/api/util/v1/general.proto";
+
+option go_package = "gitee.com/moyusir/compilation-center/api/serviceCenter/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.gitee.com/moyusir/compilation-center.v1";
+
+// 为数据收集服务与收集处理服务完成代码生成和编译的工作
+service Build {
+    // 获得数据收集服务的可执行程序
+    rpc GetDataCollectionServiceProgram(BuildRequest)returns (BuildReply);
+    // 获得数据处理服务的可执行程序
+    rpc GetDataProcessingServiceProgram(BuildRequest)returns (BuildReply);
+}
+
+// 编译请求和响应
+message BuildRequest{
+    // 服务的对象，会作为编译缓存的标识
+    string username=1;
+    // 代码生成所需的用户的注册信息
+    repeated util.v1.DeviceStateRegisterInfo device_state_register_infos = 2;
+    repeated util.v1.DeviceConfigRegisterInfo device_config_register_infos = 3;
+}
+message BuildReply{
+    bytes content=1;
+}

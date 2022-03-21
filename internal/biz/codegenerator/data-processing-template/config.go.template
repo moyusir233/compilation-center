@@ -1,0 +1,30 @@
+{{/*
+生成配置查询服务相应的源代码，需要注入一个结构体切片，
+其中每个结构体要包含DeviceClassID字段
+*/}}
+package service
+
+import (
+	"context"
+	"gitee.com/moyusir/data-processing/internal/biz"
+	"github.com/go-kratos/kratos/v2/log"
+
+	pb "gitee.com/moyusir/data-processing/api/dataProcessing/v1"
+)
+
+type ConfigService struct {
+	pb.UnimplementedConfigServer
+	configUsecase *biz.ConfigUsecase
+	logger        *log.Helper
+}
+
+func NewConfigService(cu *biz.ConfigUsecase, logger log.Logger) *ConfigService {
+	return &ConfigService{
+		configUsecase: cu,
+		logger:        log.NewHelper(logger),
+	}
+}
+
+{{range .}}
+{{template "GetDeviceConfig" .}}
+{{end}}

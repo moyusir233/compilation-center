@@ -1,0 +1,68 @@
+{{/* 预定义的，故障预警相关服务函数的子模板，包括grpc的服务函数和go service层的函数 */}}
+
+{{/* go函数部分 */}}
+
+{{/* 定义批量查询设备状态函数的模板，需要注入DeviceClassID
+*/}}
+{{define "BatchGetDeviceState" -}}
+func (s *WarningDetectService) BatchGetDeviceState{{.DeviceClassID}}(ctx context.Context, req *pb.BatchGetDeviceStateRequest) (*pb.BatchGetDeviceStateReply{{.DeviceClassID}}, error) {
+	// 代码注入deviceClassID
+	deviceClassID := {{.DeviceClassID}}
+
+	// 构造查询选项
+	var begin, end int64
+	if req.Start != nil {
+		begin = req.Start.AsTime().Unix()
+	} else {
+		begin = 0
+	}
+	if req.End != nil {
+		end = req.End.AsTime().Unix()
+	} else {
+		end = 0
+	}
+
+	option := &biz.QueryOption{
+		Begin:  begin,
+		End:    end,
+		Offset: (req.Page - 1) * req.Count,
+		Count:  req.Count,
+	}
+
+	// 调用biz层的查询函数
+	states, err := s.warningDetectUsecase.BatchGetDeviceStateInfo(deviceClassID, option, new(pb.DeviceState{{.DeviceClassID}}))
+	if err != nil {
+		return nil, err
+	}
+
+	reply := new(pb.BatchGetDeviceStateReply{{.DeviceClassID}})
+	for _, s := range states {
+		// 将接口类型向下转型
+		reply.States = append(reply.States, s.(*pb.DeviceState{{.DeviceClassID}}))
+	}
+
+	return reply, nil
+}
+{{- end}}
+
+{{/* grpc服务部分 */}}
+
+{{/* 创建分页查询设备状态的服务定义模板，需要注入DeviceClassID
+// 分页查询指定类别设备的状态信息
+*/}}
+{{define "BatchGetDeviceStateProto" -}}
+rpc BatchGetDeviceState{{.DeviceClassID}}(BatchGetDeviceStateRequest) returns (BatchGetDeviceStateReply{{.DeviceClassID}}) {
+	option (google.api.http) = {
+		get: "/states/{{.DeviceClassID}}/{page}/{count}"
+	};
+};
+{{- end}}
+
+{{/* 创建分页查询设备状态的服务响应的定义模板，需要注入DeviceClassID
+// 设备状态信息分页查询响应
+*/}}
+{{define "BatchGetDeviceStateReply" -}}
+message BatchGetDeviceStateReply{{.DeviceClassID}} {
+    repeated DeviceState{{.DeviceClassID}} states = 1;
+}
+{{- end}}

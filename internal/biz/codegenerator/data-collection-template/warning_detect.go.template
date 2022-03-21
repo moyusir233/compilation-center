@@ -1,0 +1,37 @@
+{{/*
+生成预警检测服务相应的源代码，需要注入一个结构体切片，
+其中每个结构体要包含DeviceClassID字段以及包含所有预警字段的Field切片Fields
+*/}}
+package service
+
+import (
+	"fmt"
+	"gitee.com/moyusir/data-collection/internal/biz"
+	"gitee.com/moyusir/data-collection/internal/conf"
+	"github.com/go-kratos/kratos/v2/log"
+	"github.com/google/uuid"
+	"google.golang.org/grpc/metadata"
+	"io"
+	"time"
+
+	pb "gitee.com/moyusir/data-collection/api/dataCollection/v1"
+)
+
+type WarningDetectService struct {
+	pb.UnimplementedWarningDetectServer
+	uc      *biz.WarningDetectUsecase
+	manager *biz.RouteManager
+	logger  *log.Helper
+}
+
+func NewWarningDetectService(uc *biz.WarningDetectUsecase, r *biz.RouteManager, logger log.Logger) *WarningDetectService {
+	return &WarningDetectService{
+		uc:      uc,
+		manager: r,
+		logger:  log.NewHelper(logger),
+	}
+}
+
+{{range .}}
+{{template "CreateStateInfoSaveStream" .}}
+{{end}}

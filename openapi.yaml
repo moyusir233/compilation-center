@@ -1,0 +1,11 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/apps/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: Build
+    description: 为数据收集服务与收集处理服务完成代码生成和编译的工作
+    version: 0.0.1
+paths: {}
+components:
+    schemas: {}

@@ -1,0 +1,30 @@
+{{/*
+生成配置查询服务相应的服务定义，需要注入一个结构体切片，
+其中每个结构体要包含DeviceClassID字段以及Field切片Fields
+*/}}
+syntax = "proto3";
+
+package api.dataProcessing.v1;
+
+import "google/api/annotations.proto";
+
+option go_package = "gitee.com/moyusir/data-processing/api/dataProcessing/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.dataProcessing.v1";
+
+// 配置管理服务，主要为配置查询
+service Config {
+{{range .}}
+{{template "GetDeviceConfigProto" .}}
+{{end}}
+}
+// 配置查询请求
+message GetDeviceConfigRequest {
+    // 设备id
+    string device_id = 1;
+}
+
+{{/* 依据注入的结构体切片生成相应的设备配置定义 */}}
+{{range .}}
+{{template "DeviceConfig" .}}
+{{end}}

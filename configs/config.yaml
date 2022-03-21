@@ -1,0 +1,8 @@
+server:
+  grpc:
+    addr: 0.0.0.0:9000
+    timeout: 60s
+service:
+  codeGenerator:
+    dataCollectionTmplRoot: /app/service-centre/internal/biz/codegenerator/data-processing-template
+    dataProcessingTmplRoot: /app/service-centre/internal/biz/codegenerator/data-processing-template
