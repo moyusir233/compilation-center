@@ -16,18 +16,18 @@ import (
 
 // Compiler 负责编译服务代码，具有缓存功能
 type Compiler struct {
-	// 存放数据收集项目与数据处理项目的目录的绝对路径
-	dcProjectDir, dpProjectDir string
-	// 相对于数据收集项目的根目录，存放其api定义和服务实现的目录的相对路径
-	dcApiDir, dcServiceDir string
-	// 相对于数据处理项目的根目录，存放其api定义和服务实现的目录的相对路径
-	dpApiDir, dpServiceDir string
+	// 存放服务项目的目录的绝对路径
+	projectDir string
+	// 相对于数据收集项目的根目录，存放其api定义的目录的相对路径
+	apiDir string
+	// 相对于数据处理项目的根目录，存放其服务实现的目录的相对路径
+	serviceDir string
 	// 缓存的过期时间
 	timeout time.Duration
 	// 用于控制并发的读写锁
 	rwMutex *sync.RWMutex
-	// 存放编译结果的表，优先存放dc的编译结果，然后存放dp的编译结果
-	table map[string][]*bytes.Buffer
+	// 存放编译结果的表
+	table map[string]*bytes.Buffer
 	// 管理协程的协程组
 	eg     *errgroup.Group
 	ctx    context.Context
@@ -36,22 +36,19 @@ type Compiler struct {
 	pool *sync.Pool
 }
 
-func NewCompiler(compiler *conf.Service_Compiler) *Compiler {
+func NewCompiler(dir *conf.Service_Compiler_CodeDir, timeout time.Duration) *Compiler {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return &Compiler{
-		dcProjectDir: compiler.DataCollection.ProjectDir,
-		dpProjectDir: compiler.DataProcessing.ProjectDir,
-		dcApiDir:     compiler.DataCollection.ApiDir,
-		dcServiceDir: compiler.DataCollection.ServiceDir,
-		dpApiDir:     compiler.DataProcessing.ApiDir,
-		dpServiceDir: compiler.DataProcessing.ServiceDir,
-		timeout:      compiler.Timeout.AsDuration(),
-		rwMutex:      new(sync.RWMutex),
-		table:        make(map[string][]*bytes.Buffer),
-		eg:           new(errgroup.Group),
-		ctx:          ctx,
-		cancel:       cancel,
+		projectDir: dir.ProjectDir,
+		apiDir:     dir.ApiDir,
+		serviceDir: dir.ServiceDir,
+		timeout:    timeout,
+		rwMutex:    new(sync.RWMutex),
+		table:      make(map[string]*bytes.Buffer),
+		eg:         new(errgroup.Group),
+		ctx:        ctx,
+		cancel:     cancel,
 		pool: &sync.Pool{New: func() interface{} {
 			return bytes.NewBuffer(make([]byte, 0, 1024))
 		}},
@@ -62,12 +59,8 @@ func (c *Compiler) autoClearCache(key string) {
 	case <-time.After(c.timeout):
 		// 超时，将使用的buffer放回池中，并删除掉key
 		c.rwMutex.Lock()
-		for _, buffer := range c.table[key] {
-			if buffer != nil {
-				buffer.Reset()
-				c.pool.Put(buffer)
-			}
-		}
+		c.table[key].Reset()
+		c.pool.Put(c.table[key])
 		delete(c.table, key)
 		c.rwMutex.Unlock()
 	case <-c.ctx.Done():
@@ -82,13 +75,13 @@ func (c *Compiler) Close() error {
 }
 
 // Compile 以指定的key执行编译
-func (c *Compiler) Compile(key string, dcCode, dpCode map[string]*bytes.Buffer) (
-	dc *bytes.Buffer, dp *bytes.Buffer, err error) {
+func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
+	exe *bytes.Buffer, err error) {
 	c.rwMutex.RLock()
 	// 先查询缓存
-	if buffers, ok := c.table[key]; ok {
+	if buffer, ok := c.table[key]; ok {
 		c.rwMutex.RUnlock()
-		return buffers[0], buffers[1], nil
+		return buffer, nil
 	}
 
 	// 由于缓存中未查询到，需要执行编译
@@ -98,32 +91,22 @@ func (c *Compiler) Compile(key string, dcCode, dpCode map[string]*bytes.Buffer) 
 	defer c.rwMutex.Unlock()
 
 	// 获得存放编译结果的buffer
-	dc = c.pool.Get().(*bytes.Buffer)
-	dp = c.pool.Get().(*bytes.Buffer)
+	exe = c.pool.Get().(*bytes.Buffer)
 	defer func() {
 		if err != nil {
-			dc.Reset()
-			dp.Reset()
-			c.pool.Put(dc)
-			c.pool.Put(dp)
+			exe.Reset()
+			c.pool.Put(exe)
 		}
 	}()
 
-	// 并行执行编译
-	eg := new(errgroup.Group)
-	eg.Go(func() error {
-		return compileTo(c.dcProjectDir, c.dcApiDir, c.dcServiceDir, dcCode, dc)
-	})
-	eg.Go(func() error {
-		return compileTo(c.dpProjectDir, c.dpApiDir, c.dpServiceDir, dpCode, dp)
-	})
-	err = eg.Wait()
+	// 执行编译
+	err = c.compileTo(code, exe)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// 将结果放入缓存表中
-	c.table[key] = []*bytes.Buffer{dc, dp}
+	c.table[key] = exe
 
 	// 注册自动清理的协程
 	c.eg.Go(func() error {
@@ -134,10 +117,10 @@ func (c *Compiler) Compile(key string, dcCode, dpCode map[string]*bytes.Buffer) 
 }
 
 // 通过执行shell完成编译
-func compileTo(projectDir, apiDir, serviceDir string, code map[string]*bytes.Buffer, result *bytes.Buffer) error {
+func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer) error {
 	// 为了进行编译，首先需要将生成的代码先写入到文件中
-	apiDirPath := filepath.Join(projectDir, apiDir)
-	serviceDirPath := filepath.Join(projectDir, serviceDir)
+	apiDirPath := filepath.Join(c.projectDir, c.apiDir)
+	serviceDirPath := filepath.Join(c.projectDir, c.serviceDir)
 
 	for k, v := range code {
 		var path string
@@ -160,10 +143,21 @@ func compileTo(projectDir, apiDir, serviceDir string, code map[string]*bytes.Buf
 		}
 	}
 
+	// 创建存放编译结果的临时目录
+	tempDir, err := os.MkdirTemp("", "app")
+	if err != nil {
+		tempDir = os.TempDir()
+	}
+	defer func() {
+		if tempDir != os.TempDir() {
+			os.RemoveAll(tempDir)
+		}
+	}()
+	targetPath := filepath.Join(tempDir, "server")
+
 	// 执行shell
-	targetPath := filepath.Join(os.TempDir(), "server")
-	cmd := exec.Command("/shell/build.sh", projectDir, targetPath)
-	err := cmd.Run()
+	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
+	err = cmd.Run()
 	if err != nil {
 		return err
 	}

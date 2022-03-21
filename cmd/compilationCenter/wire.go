@@ -10,11 +10,12 @@ import (
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"gitee.com/moyusir/compilation-center/internal/server"
 	"gitee.com/moyusir/compilation-center/internal/service"
+	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/wire"
 )
 
 // initApp init kratos application.
-func initApp(*conf.Server, *conf.Service, *conf.Data, log.Logger) (*kratos.App, func(), error) {
+func initApp(*conf.Server, *conf.Service, log.Logger) (*kratos.App, error) {
 	panic(wire.Build(server.ProviderSet, biz.ProviderSet, service.ProviderSet, newApp))
 }

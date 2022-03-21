@@ -8,7 +8,6 @@ import (
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/go-kratos/kratos/v2/transport/http"
 )
 
 // go build -ldflags "-X main.Version=x.y.z"
@@ -54,11 +53,10 @@ func main() {
 		panic(err)
 	}
 
-	app, cleanup, err := initApp(bc.Server, bc.Service, bc.Data, logger)
+	app, err := initApp(bc.Server, bc.Service, logger)
 	if err != nil {
 		panic(err)
 	}
-	defer cleanup()
 
 	// start and wait for stop signal
 	if err := app.Run(); err != nil {

@@ -4,5 +4,15 @@ server:
     timeout: 60s
 service:
   codeGenerator:
-    dataCollectionTmplRoot: /app/service-centre/internal/biz/codegenerator/data-processing-template
-    dataProcessingTmplRoot: /app/service-centre/internal/biz/codegenerator/data-processing-template
+    dataCollectionTmplRoot: /etc/data-collection-template
+    dataProcessingTmplRoot: /etc/data-processing-template
+  compiler:
+    timeout: 600s
+    dataCollection:
+      projectDir: /var/data-collection
+      apiDir: api/dataCollection/v1
+      serviceDir: internal/service
+    dataProcessing:
+      projectDir: /var/data-processing
+      apiDir: api/dataProcessing/v1
+      serviceDir: internal/service

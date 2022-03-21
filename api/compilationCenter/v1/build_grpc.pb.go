@@ -22,10 +22,8 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BuildClient interface {
-	// 获得数据收集服务的可执行程序
-	GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error)
-	// 获得数据处理服务的可执行程序
-	GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error)
+	// 获得数据收集服务和数据处理服务的可执行程序
+	GetServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error)
 }
 
 type buildClient struct {
@@ -36,18 +34,9 @@ func NewBuildClient(cc grpc.ClientConnInterface) BuildClient {
 	return &buildClient{cc}
 }
 
-func (c *buildClient) GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error) {
+func (c *buildClient) GetServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error) {
 	out := new(BuildReply)
-	err := c.cc.Invoke(ctx, "/api.serviceCentre.v1.Build/GetDataCollectionServiceProgram", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *buildClient) GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (*BuildReply, error) {
-	out := new(BuildReply)
-	err := c.cc.Invoke(ctx, "/api.serviceCentre.v1.Build/GetDataProcessingServiceProgram", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/api.serviceCentre.v1.Build/GetServiceProgram", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +47,8 @@ func (c *buildClient) GetDataProcessingServiceProgram(ctx context.Context, in *B
 // All implementations must embed UnimplementedBuildServer
 // for forward compatibility
 type BuildServer interface {
-	// 获得数据收集服务的可执行程序
-	GetDataCollectionServiceProgram(context.Context, *BuildRequest) (*BuildReply, error)
-	// 获得数据处理服务的可执行程序
-	GetDataProcessingServiceProgram(context.Context, *BuildRequest) (*BuildReply, error)
+	// 获得数据收集服务和数据处理服务的可执行程序
+	GetServiceProgram(context.Context, *BuildRequest) (*BuildReply, error)
 	mustEmbedUnimplementedBuildServer()
 }
 
@@ -69,11 +56,8 @@ type BuildServer interface {
 type UnimplementedBuildServer struct {
 }
 
-func (UnimplementedBuildServer) GetDataCollectionServiceProgram(context.Context, *BuildRequest) (*BuildReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDataCollectionServiceProgram not implemented")
-}
-func (UnimplementedBuildServer) GetDataProcessingServiceProgram(context.Context, *BuildRequest) (*BuildReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetDataProcessingServiceProgram not implemented")
+func (UnimplementedBuildServer) GetServiceProgram(context.Context, *BuildRequest) (*BuildReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetServiceProgram not implemented")
 }
 func (UnimplementedBuildServer) mustEmbedUnimplementedBuildServer() {}
 
@@ -88,38 +72,20 @@ func RegisterBuildServer(s grpc.ServiceRegistrar, srv BuildServer) {
 	s.RegisterService(&Build_ServiceDesc, srv)
 }
 
-func _Build_GetDataCollectionServiceProgram_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _Build_GetServiceProgram_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(BuildRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(BuildServer).GetDataCollectionServiceProgram(ctx, in)
+		return srv.(BuildServer).GetServiceProgram(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/api.serviceCentre.v1.Build/GetDataCollectionServiceProgram",
+		FullMethod: "/api.serviceCentre.v1.Build/GetServiceProgram",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BuildServer).GetDataCollectionServiceProgram(ctx, req.(*BuildRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Build_GetDataProcessingServiceProgram_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BuildRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(BuildServer).GetDataProcessingServiceProgram(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/api.serviceCentre.v1.Build/GetDataProcessingServiceProgram",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(BuildServer).GetDataProcessingServiceProgram(ctx, req.(*BuildRequest))
+		return srv.(BuildServer).GetServiceProgram(ctx, req.(*BuildRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -132,12 +98,8 @@ var Build_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*BuildServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "GetDataCollectionServiceProgram",
-			Handler:    _Build_GetDataCollectionServiceProgram_Handler,
-		},
-		{
-			MethodName: "GetDataProcessingServiceProgram",
-			Handler:    _Build_GetDataProcessingServiceProgram_Handler,
+			MethodName: "GetServiceProgram",
+			Handler:    _Build_GetServiceProgram_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

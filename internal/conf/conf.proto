@@ -36,4 +36,5 @@ message Service{
     google.protobuf.Duration timeout=3;
   }
   CodeGenerator code_generator = 1;
+  Compiler compiler = 2;
 }

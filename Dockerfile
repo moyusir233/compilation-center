@@ -1,24 +1,30 @@
-FROM golang:1.16 AS builder
+FROM golang:1.17 AS builder
 
 COPY . /src
 WORKDIR /src
 
-RUN GOPROXY=https://goproxy.cn make build
+# 执行编译
+RUN go env -w GOPRIVATE=gitee.com \
+    && go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,direct \
+    && git config --global url."git@gitee.com:".insteadOf https://gitee.com/ \
+    && cp -r key /root/.ssh && chmod -R 0600 /root/.ssh/* \
+    && make build && mv bin/$(ls bin) bin/server
 
-FROM debian:stable-slim
+FROM golang:1.17
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-		ca-certificates  \
-        netbase \
-        && rm -rf /var/lib/apt/lists/ \
-        && apt-get autoremove -y && apt-get autoclean -y
-
+# 将编译得到的可执行程序以及需要编译的服务项目复制进容器
 COPY --from=builder /src/bin /app
+COPY --from=builder /src/compile_project/data-collection /var/data-collection
+COPY --from=builder /src/compile_project/data-processing /var/data-processing
 
 WORKDIR /app
 
-EXPOSE 8000
 EXPOSE 9000
-VOLUME /data/conf
 
-CMD ["./server", "-conf", "/data/conf"]
+# 需要用于编译的脚本以及配置文件和代码模板
+VOLUME /shell
+VOLUME /etc/app-configs
+VOLUME /etc/data-collection-template
+VOLUME /etc/data-processing-template
+
+CMD ["./server", "-conf", "/etc/app-configs/config.yaml"]

@@ -1,0 +1,8 @@
+[submodule "compile_project/data-collection"]
+	path = compile_project/data-collection
+	url = git@gitee.com:moyusir/data-collection.git
+	branch = code-template
+[submodule "compile_project/data-processing"]
+	path = compile_project/data-processing
+	url = git@gitee.com:moyusir/data-processing.git
+	branch = code-template

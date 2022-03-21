@@ -10,10 +10,8 @@ option java_package = "api.gitee.com/moyusir/compilation-center.v1";
 
 // 为数据收集服务与收集处理服务完成代码生成和编译的工作
 service Build {
-    // 获得数据收集服务的可执行程序
-    rpc GetDataCollectionServiceProgram(BuildRequest)returns (BuildReply);
-    // 获得数据处理服务的可执行程序
-    rpc GetDataProcessingServiceProgram(BuildRequest)returns (BuildReply);
+    // 获得数据收集服务和数据处理服务的可执行程序
+    rpc GetServiceProgram(BuildRequest)returns (BuildReply);
 }
 
 // 编译请求和响应
@@ -25,5 +23,6 @@ message BuildRequest{
     repeated util.v1.DeviceConfigRegisterInfo device_config_register_infos = 3;
 }
 message BuildReply{
-    bytes content=1;
+    bytes dc_exe=1;
+    bytes dp_exe=2;
 }
