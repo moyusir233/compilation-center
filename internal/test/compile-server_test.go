@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
@@ -121,7 +122,7 @@ func TestCompilationCenter(t *testing.T) {
 	}
 
 	// 调用编译的grpc函数
-	reply, err := client.GetServiceProgram(context.Background(), &v1.BuildRequest{
+	replyStream, err := client.GetServiceProgram(context.Background(), &v1.BuildRequest{
 		Username:                  "test",
 		DeviceStateRegisterInfos:  stateInfo,
 		DeviceConfigRegisterInfos: configInfo,
@@ -130,23 +131,40 @@ func TestCompilationCenter(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// 读取流中的二进制数据
+	dcExe := bytes.NewBuffer(make([]byte, 0, 1024))
+	dpExe := bytes.NewBuffer(make([]byte, 0, 1024))
+
+	for {
+		reply, err := replyStream.Recv()
+		if err != nil {
+			break
+		}
+		if len(reply.DcExe) > 0 {
+			dcExe.Write(reply.DcExe)
+		}
+		if len(reply.DpExe) > 0 {
+			dpExe.Write(reply.DpExe)
+		}
+	}
+
 	// 将二进制数据保存
-	dc, err := os.Open("/app/dc")
+	dc, err := os.Create("/app/dc")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dc.Close()
-	_, err = dc.Write(reply.DcExe)
+	_, err = dcExe.WriteTo(dc)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	dp, err := os.Open("/app/dp")
+	dp, err := os.Create("/app/dp")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dp.Close()
-	_, err = dp.Write(reply.DpExe)
+	_, err = dpExe.WriteTo(dp)
 	if err != nil {
 		t.Fatal(err)
 	}

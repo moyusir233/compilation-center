@@ -11,7 +11,7 @@ option java_package = "api.gitee.com/moyusir/compilation-center.v1";
 // 为数据收集服务与收集处理服务完成代码生成和编译的工作
 service Build {
     // 获得数据收集服务和数据处理服务的可执行程序
-    rpc GetServiceProgram(BuildRequest)returns (BuildReply);
+    rpc GetServiceProgram(BuildRequest)returns (stream BuildReply);
 }
 
 // 编译请求和响应
