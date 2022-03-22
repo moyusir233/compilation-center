@@ -129,6 +129,7 @@ func TestCompilationCenter(t *testing.T) {
 		for {
 			err := stream.RecvMsg(reply)
 			if err != nil {
+				t.Log(err)
 				break
 			}
 			if len(reply.Exe) > 0 {
