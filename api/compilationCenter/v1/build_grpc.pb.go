@@ -36,7 +36,7 @@ func NewBuildClient(cc grpc.ClientConnInterface) BuildClient {
 }
 
 func (c *buildClient) GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataCollectionServiceProgramClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[0], "/api.serviceCentre.v1.Build/GetDataCollectionServiceProgram", opts...)
+	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[0], "/api.compilationCenter.v1.Build/GetDataCollectionServiceProgram", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func (x *buildGetDataCollectionServiceProgramClient) Recv() (*BuildReply, error)
 }
 
 func (c *buildClient) GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataProcessingServiceProgramClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[1], "/api.serviceCentre.v1.Build/GetDataProcessingServiceProgram", opts...)
+	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[1], "/api.compilationCenter.v1.Build/GetDataProcessingServiceProgram", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (x *buildGetDataProcessingServiceProgramServer) Send(m *BuildReply) error {
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var Build_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "api.serviceCentre.v1.Build",
+	ServiceName: "api.compilationCenter.v1.Build",
 	HandlerType: (*BuildServer)(nil),
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{

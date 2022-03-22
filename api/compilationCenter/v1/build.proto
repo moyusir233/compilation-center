@@ -1,10 +1,10 @@
 syntax = "proto3";
 
-package api.serviceCentre.v1;
+package api.compilationCenter.v1;
 
 import "util/api/util/v1/general.proto";
 
-option go_package = "gitee.com/moyusir/compilation-center/api/serviceCenter/v1;v1";
+option go_package = "gitee.com/moyusir/compilation-center/api/compilationCenter/v1;v1";
 option java_multiple_files = true;
 option java_package = "api.gitee.com/moyusir/compilation-center.v1";
 
