@@ -3,7 +3,7 @@ FROM golang:1.17 AS builder
 COPY . /src
 WORKDIR /src
 
-# 执行编译
+# 配置环境，执行编译
 RUN go env -w GOPRIVATE=gitee.com \
     && go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,direct \
     && git config --global url."git@gitee.com:".insteadOf https://gitee.com/ \
@@ -11,6 +11,15 @@ RUN go env -w GOPRIVATE=gitee.com \
     && make build && mv bin/$(ls bin) bin/server
 
 FROM golang:1.17
+
+# 安装编译grpc和api生成需要的可执行程序与插件
+RUN go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,direct \
+    && go install google.golang.org/protobuf/cmd/protoc-gen-go@latest \
+    && go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest \
+    && go install github.com/go-kratos/kratos/cmd/kratos/v2@latest \
+    && go install github.com/go-kratos/kratos/cmd/protoc-gen-go-http/v2@latest \
+    && go install github.com/go-kratos/kratos/cmd/protoc-gen-go-errors/v2@latest \
+    && go install github.com/google/gnostic/cmd/protoc-gen-openapi@v0.6.1
 
 # 将编译得到的可执行程序以及需要编译的服务项目复制进容器
 COPY --from=builder /src/bin /app
