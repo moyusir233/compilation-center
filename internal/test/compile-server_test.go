@@ -1,10 +1,10 @@
 package test
 
 import (
-	"bytes"
 	"context"
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"os"
 	"testing"
@@ -69,7 +69,7 @@ func TestCompilationCenter(t *testing.T) {
 				},
 				{
 					Name: "voltage",
-					Type: utilApi.Type_DOUBLE,
+					Type: utilApi.Type_INT64,
 					WarningRule: &utilApi.DeviceStateRegisterInfo_WarningRule{
 						CmpRule: &utilApi.DeviceStateRegisterInfo_CmpRule{
 							Cmp: utilApi.DeviceStateRegisterInfo_GT,
@@ -107,7 +107,7 @@ func TestCompilationCenter(t *testing.T) {
 				},
 				{
 					Name: "voltage",
-					Type: utilApi.Type_DOUBLE,
+					Type: utilApi.Type_INT64,
 					WarningRule: &utilApi.DeviceStateRegisterInfo_WarningRule{
 						CmpRule: &utilApi.DeviceStateRegisterInfo_CmpRule{
 							Cmp: utilApi.DeviceStateRegisterInfo_GT,
@@ -121,52 +121,70 @@ func TestCompilationCenter(t *testing.T) {
 		},
 	}
 
+	// 读取流的辅助函数
+	readExeStreamToFile := func(stream grpc.ClientStream, file *os.File) error {
+		defer file.Close()
+		// 读取流中的二进制数据
+		reply := new(v1.BuildReply)
+		for {
+			err := stream.RecvMsg(reply)
+			if err != nil {
+				break
+			}
+			if len(reply.Exe) > 0 {
+				_, err := file.Write(reply.Exe)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
 	// 调用编译的grpc函数
-	replyStream, err := client.GetServiceProgram(context.Background(), &v1.BuildRequest{
-		Username:                  "test",
-		DeviceStateRegisterInfos:  stateInfo,
-		DeviceConfigRegisterInfos: configInfo,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	var streams []grpc.ClientStream
+	var files []*os.File
 
-	// 读取流中的二进制数据
-	dcExe := bytes.NewBuffer(make([]byte, 0, 1024))
-	dpExe := bytes.NewBuffer(make([]byte, 0, 1024))
-
-	for {
-		reply, err := replyStream.Recv()
+	{
+		dpStream, err := client.GetDataProcessingServiceProgram(context.Background(), &v1.BuildRequest{
+			Username:                  "test",
+			DeviceStateRegisterInfos:  stateInfo,
+			DeviceConfigRegisterInfos: configInfo,
+		})
 		if err != nil {
-			break
+			t.Fatal(err)
 		}
-		if len(reply.DcExe) > 0 {
-			dcExe.Write(reply.DcExe)
+		dpExe, err := os.Create("/app/dp")
+		if err != nil {
+			t.Fatal(err)
 		}
-		if len(reply.DpExe) > 0 {
-			dpExe.Write(reply.DpExe)
+
+		streams = append(streams, dpStream)
+		files = append(files, dpExe)
+	}
+	{
+		dcStream, err := client.GetDataCollectionServiceProgram(context.Background(), &v1.BuildRequest{
+			Username:                  "test",
+			DeviceStateRegisterInfos:  stateInfo,
+			DeviceConfigRegisterInfos: configInfo,
+		})
+		if err != nil {
+			t.Fatal(err)
 		}
+
+		dcExe, err := os.Create("/app/dc")
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		streams = append(streams, dcStream)
+		files = append(files, dcExe)
 	}
 
-	// 将二进制数据保存
-	dc, err := os.Create("/app/dc")
-	if err != nil {
-		t.Fatal(err)
+	for i, s := range streams {
+		err := readExeStreamToFile(s, files[i])
+		if err != nil {
+			t.Error(err)
+		}
 	}
-	defer dc.Close()
-	_, err = dcExe.WriteTo(dc)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	dp, err := os.Create("/app/dp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer dp.Close()
-	_, err = dpExe.WriteTo(dp)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 }

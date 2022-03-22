@@ -17,7 +17,9 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 		// 设备预警字段，代码生成时注入
 		fields = map[string]float64{
 		{{range .Fields -}}
+		{{if .Warning}}
 			"{{camelCase .Name}}": 0,
+		{{end}}
         {{- end}}
 		}
 	)
@@ -58,7 +60,9 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 		info.DeviceID = state.Id
 
     {{range .Fields}}
-         fields["{{camelCase .Name}}"] = state.{{camelCase .Name}}
+		{{if .Warning}}
+		fields["{{camelCase .Name}}"] = float64(state.{{camelCase .Name}})
+		{{end}}
     {{end}}
 
 		// TODO 考虑路由激活以及保存设备状态出错时如何处理

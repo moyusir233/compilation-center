@@ -36,6 +36,8 @@ type Device struct {
 
 type Field struct {
 	Name, Type string
+	// 是否为预警字段的标志
+	Warning bool
 }
 
 func newGeneralRenderer() *generalRenderer {

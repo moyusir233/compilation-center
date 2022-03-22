@@ -6,7 +6,6 @@ import (
 	"gitee.com/moyusir/compilation-center/internal/biz/compiler"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
-	"golang.org/x/sync/errgroup"
 )
 
 type BuildUsecase struct {
@@ -33,38 +32,36 @@ func NewBuildUsecase(service *conf.Service) (*BuildUsecase, error) {
 	}, nil
 }
 
-// BuildServiceExe
-func (u *BuildUsecase) BuildServiceExe(
+// BuildDCServiceExe 编译数据收集服务的二进制程序
+func (u *BuildUsecase) BuildDCServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
-	dcExe, dpExe *bytes.Buffer, err error) {
-	dc, dp, err := u.generator.GetServiceFiles(configs, states)
+	*bytes.Buffer, error) {
+	dc, err := u.generator.GetDataCollectionServiceFiles(configs, states)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	eg := new(errgroup.Group)
-	eg.Go(func() error {
-		result, err := u.dcCompiler.Compile(username, dc)
-		if err != nil {
-			return err
-		} else {
-			dcExe = result
-			return nil
-		}
-	})
-	eg.Go(func() error {
-		result, err := u.dpCompiler.Compile(username, dp)
-		if err != nil {
-			return err
-		} else {
-			dpExe = result
-			return nil
-		}
-	})
-	err = eg.Wait()
-
+	result, err := u.dcCompiler.Compile(username, dc)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return
+
+	return result, nil
+}
+
+// BuildDPServiceExe 编译数据处理服务的二进制程序
+func (u *BuildUsecase) BuildDPServiceExe(
+	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
+	*bytes.Buffer, error) {
+	dp, err := u.generator.GetDataProcessingServiceFiles(configs, states)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := u.dpCompiler.Compile(username, dp)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

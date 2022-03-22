@@ -23,7 +23,8 @@ const _ = grpc.SupportPackageIsVersion7
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BuildClient interface {
 	// 获得数据收集服务和数据处理服务的可执行程序
-	GetServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetServiceProgramClient, error)
+	GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataCollectionServiceProgramClient, error)
+	GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataProcessingServiceProgramClient, error)
 }
 
 type buildClient struct {
@@ -34,12 +35,12 @@ func NewBuildClient(cc grpc.ClientConnInterface) BuildClient {
 	return &buildClient{cc}
 }
 
-func (c *buildClient) GetServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetServiceProgramClient, error) {
-	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[0], "/api.serviceCentre.v1.Build/GetServiceProgram", opts...)
+func (c *buildClient) GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataCollectionServiceProgramClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[0], "/api.serviceCentre.v1.Build/GetDataCollectionServiceProgram", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &buildGetServiceProgramClient{stream}
+	x := &buildGetDataCollectionServiceProgramClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -49,16 +50,48 @@ func (c *buildClient) GetServiceProgram(ctx context.Context, in *BuildRequest, o
 	return x, nil
 }
 
-type Build_GetServiceProgramClient interface {
+type Build_GetDataCollectionServiceProgramClient interface {
 	Recv() (*BuildReply, error)
 	grpc.ClientStream
 }
 
-type buildGetServiceProgramClient struct {
+type buildGetDataCollectionServiceProgramClient struct {
 	grpc.ClientStream
 }
 
-func (x *buildGetServiceProgramClient) Recv() (*BuildReply, error) {
+func (x *buildGetDataCollectionServiceProgramClient) Recv() (*BuildReply, error) {
+	m := new(BuildReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *buildClient) GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataProcessingServiceProgramClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Build_ServiceDesc.Streams[1], "/api.serviceCentre.v1.Build/GetDataProcessingServiceProgram", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &buildGetDataProcessingServiceProgramClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Build_GetDataProcessingServiceProgramClient interface {
+	Recv() (*BuildReply, error)
+	grpc.ClientStream
+}
+
+type buildGetDataProcessingServiceProgramClient struct {
+	grpc.ClientStream
+}
+
+func (x *buildGetDataProcessingServiceProgramClient) Recv() (*BuildReply, error) {
 	m := new(BuildReply)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -71,7 +104,8 @@ func (x *buildGetServiceProgramClient) Recv() (*BuildReply, error) {
 // for forward compatibility
 type BuildServer interface {
 	// 获得数据收集服务和数据处理服务的可执行程序
-	GetServiceProgram(*BuildRequest, Build_GetServiceProgramServer) error
+	GetDataCollectionServiceProgram(*BuildRequest, Build_GetDataCollectionServiceProgramServer) error
+	GetDataProcessingServiceProgram(*BuildRequest, Build_GetDataProcessingServiceProgramServer) error
 	mustEmbedUnimplementedBuildServer()
 }
 
@@ -79,8 +113,11 @@ type BuildServer interface {
 type UnimplementedBuildServer struct {
 }
 
-func (UnimplementedBuildServer) GetServiceProgram(*BuildRequest, Build_GetServiceProgramServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetServiceProgram not implemented")
+func (UnimplementedBuildServer) GetDataCollectionServiceProgram(*BuildRequest, Build_GetDataCollectionServiceProgramServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetDataCollectionServiceProgram not implemented")
+}
+func (UnimplementedBuildServer) GetDataProcessingServiceProgram(*BuildRequest, Build_GetDataProcessingServiceProgramServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetDataProcessingServiceProgram not implemented")
 }
 func (UnimplementedBuildServer) mustEmbedUnimplementedBuildServer() {}
 
@@ -95,24 +132,45 @@ func RegisterBuildServer(s grpc.ServiceRegistrar, srv BuildServer) {
 	s.RegisterService(&Build_ServiceDesc, srv)
 }
 
-func _Build_GetServiceProgram_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _Build_GetDataCollectionServiceProgram_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(BuildRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(BuildServer).GetServiceProgram(m, &buildGetServiceProgramServer{stream})
+	return srv.(BuildServer).GetDataCollectionServiceProgram(m, &buildGetDataCollectionServiceProgramServer{stream})
 }
 
-type Build_GetServiceProgramServer interface {
+type Build_GetDataCollectionServiceProgramServer interface {
 	Send(*BuildReply) error
 	grpc.ServerStream
 }
 
-type buildGetServiceProgramServer struct {
+type buildGetDataCollectionServiceProgramServer struct {
 	grpc.ServerStream
 }
 
-func (x *buildGetServiceProgramServer) Send(m *BuildReply) error {
+func (x *buildGetDataCollectionServiceProgramServer) Send(m *BuildReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Build_GetDataProcessingServiceProgram_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(BuildRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(BuildServer).GetDataProcessingServiceProgram(m, &buildGetDataProcessingServiceProgramServer{stream})
+}
+
+type Build_GetDataProcessingServiceProgramServer interface {
+	Send(*BuildReply) error
+	grpc.ServerStream
+}
+
+type buildGetDataProcessingServiceProgramServer struct {
+	grpc.ServerStream
+}
+
+func (x *buildGetDataProcessingServiceProgramServer) Send(m *BuildReply) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -125,8 +183,13 @@ var Build_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetServiceProgram",
-			Handler:       _Build_GetServiceProgram_Handler,
+			StreamName:    "GetDataCollectionServiceProgram",
+			Handler:       _Build_GetDataCollectionServiceProgram_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetDataProcessingServiceProgram",
+			Handler:       _Build_GetDataProcessingServiceProgram_Handler,
 			ServerStreams: true,
 		},
 	},

@@ -1,13 +1,12 @@
 package service
 
 import (
+	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	"gitee.com/moyusir/compilation-center/internal/biz"
-
-	pb "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 )
 
 type BuildService struct {
-	pb.UnimplementedBuildServer
+	v1.UnimplementedBuildServer
 	uc *biz.BuildUsecase
 }
 
@@ -15,36 +14,47 @@ func NewBuildService(uc *biz.BuildUsecase) *BuildService {
 	return &BuildService{uc: uc}
 }
 
-func (s *BuildService) GetServiceProgram(req *pb.BuildRequest, stream pb.Build_GetServiceProgramServer) error {
-	dc, dp, err := s.uc.BuildServiceExe(req.Username, req.DeviceStateRegisterInfos, req.DeviceConfigRegisterInfos)
+func (b *BuildService) GetDataCollectionServiceProgram(request *v1.BuildRequest, stream v1.Build_GetDataCollectionServiceProgramServer) error {
+	exe, err := b.uc.BuildDCServiceExe(
+		request.Username, request.DeviceStateRegisterInfos, request.DeviceConfigRegisterInfos)
 	if err != nil {
 		return err
 	}
 
-	dcEnd, dpEnd := false, false
-	reply := &pb.BuildReply{
-		DcExe: make([]byte, 1024),
-		DpExe: make([]byte, 1024),
+	reply := &v1.BuildReply{
+		Exe: make([]byte, 1024),
+	}
+	for {
+		n, err := exe.Read(reply.Exe)
+		if err != nil {
+			break
+		}
+		reply.Exe = reply.Exe[:n]
+		err = stream.Send(reply)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *BuildService) GetDataProcessingServiceProgram(request *v1.BuildRequest, stream v1.Build_GetDataProcessingServiceProgramServer) error {
+	exe, err := b.uc.BuildDPServiceExe(
+		request.Username, request.DeviceStateRegisterInfos, request.DeviceConfigRegisterInfos)
+	if err != nil {
+		return err
 	}
 
-	for !dcEnd || !dpEnd {
-		if !dcEnd {
-			length, err := dc.Read(reply.DcExe)
-			if err != nil {
-				dcEnd = true
-			} else {
-				reply.DcExe = reply.DcExe[:length]
-			}
+	reply := &v1.BuildReply{
+		Exe: make([]byte, 1024),
+	}
+	for {
+		n, err := exe.Read(reply.Exe)
+		if err != nil {
+			break
 		}
-		if !dpEnd {
-			length, err := dp.Read(reply.DpExe)
-			if err != nil {
-				dpEnd = true
-			} else {
-				reply.DpExe = reply.DpExe[:length]
-			}
-		}
-		err := stream.Send(reply)
+		reply.Exe = reply.Exe[:n]
+		err = stream.Send(reply)
 		if err != nil {
 			return err
 		}

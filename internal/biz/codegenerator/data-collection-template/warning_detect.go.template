@@ -1,6 +1,7 @@
 {{/*
 生成预警检测服务相应的源代码，需要注入一个结构体切片，
-其中每个结构体要包含DeviceClassID字段以及包含所有预警字段的Field切片Fields
+其中每个结构体要包含DeviceClassID字段以及包含所有字段的Field切片Fields，每个Field需要利用Warning标识
+是否为预警字段
 */}}
 package service
 
