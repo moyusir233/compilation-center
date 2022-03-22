@@ -102,7 +102,7 @@ func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 	// 执行编译
 	err = c.compileTo(code, exe)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	// 将结果放入缓存表中
@@ -143,21 +143,11 @@ func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer
 		}
 	}
 
-	// 创建存放编译结果的临时目录
-	tempDir, err := os.MkdirTemp("", "app")
-	if err != nil {
-		tempDir = os.TempDir()
-	}
-	defer func() {
-		if tempDir != os.TempDir() {
-			os.RemoveAll(tempDir)
-		}
-	}()
-	targetPath := filepath.Join(tempDir, "server")
+	targetPath := filepath.Join(c.projectDir, "bin", "server")
 
 	// 执行shell
 	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
-	err = cmd.Run()
+	err := cmd.Run()
 	if err != nil {
 		return err
 	}
@@ -167,6 +157,8 @@ func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer
 	if err != nil {
 		return err
 	}
+	defer file.Close()
+
 	_, err = io.Copy(result, file)
 	if err != nil {
 		return err

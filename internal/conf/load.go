@@ -8,7 +8,7 @@ import (
 func LoadConfig(path string) (*Bootstrap, error) {
 	c := config.New(
 		config.WithSource(
-			file.NewSource("../../configs/config.yaml"),
+			file.NewSource(path),
 		),
 	)
 	defer c.Close()

@@ -22,6 +22,7 @@ WORKDIR /app
 EXPOSE 9000
 
 # 需要用于编译的脚本以及配置文件和代码模板
+VOLUME /bin/protoc
 VOLUME /shell
 VOLUME /etc/app-configs
 VOLUME /etc/data-collection-template
