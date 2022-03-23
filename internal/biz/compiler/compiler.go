@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"gitee.com/moyusir/compilation-center/internal/conf"
+	"github.com/go-kratos/kratos/v2/errors"
 	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
@@ -147,9 +148,13 @@ func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer
 
 	// 执行shell
 	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
-	err := cmd.Run()
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return errors.Newf(500,
+			"failed to exec the shell of build",
+			"%s\n%s",
+			err, string(output),
+		)
 	}
 
 	// 执行完毕后将编译结果写入buffer
