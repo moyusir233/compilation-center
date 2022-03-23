@@ -22,6 +22,8 @@ type BuildUsecase struct {
 type ClientCodeRepo interface {
 	// SaveClientCode 保存客户端代码，其中map的键为文件名，值为文件对应的二进制数据
 	SaveClientCode(key string, files map[string]*bytes.Reader) error
+	// IsValid 判断账号是否已经有效，是为了避免在账号已经注销的情况下使用了无效的编译缓存
+	IsValid(username string) bool
 }
 
 func NewBuildUsecase(service *conf.Service, repo ClientCodeRepo, logger log.Logger) (*BuildUsecase, func(), error) {
@@ -52,38 +54,40 @@ func NewBuildUsecase(service *conf.Service, repo ClientCodeRepo, logger log.Logg
 func (u *BuildUsecase) BuildDCServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
 	*bytes.Reader, error) {
-	// 先查询是否已经编译过相关文件
+	// 由于账号注册失败时保存的编译缓存是无效的，因此先判断账号是否有效，有效才允许使用缓存
+	// （只有保存了客户端代码的账号，视作进行了稳定的编译，才能使用缓存）
 	compiled, ok := u.dcCompiler.IsCompiled(username)
-	if ok {
+	if ok && u.repo.IsValid(username) {
 		return compiled, nil
 	}
 
-	// 未查询到，则重新生成代码并编译
+	// 缓存无效或未查询到，则重新生成代码并编译
 	dc, err := u.generator.GetDataCollectionServiceFiles(configs, states)
 	if err != nil {
 		u.logger.Error(err)
 		return nil, err
 	}
 
+	// 在后台保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
+	go func() {
+		files := make(map[string]*bytes.Reader)
+		for k, v := range dc {
+			if strings.HasSuffix(k, ".proto") {
+				files[k] = bytes.NewReader(v.Bytes())
+			}
+		}
+		// 这里保存文件的错误不返回，避免影响服务容器的启动
+		err = u.repo.SaveClientCode(username, files)
+		if err != nil {
+			u.logger.Error(err)
+		}
+	}()
+
 	// 编译获得可执行程序
 	result, err := u.dcCompiler.Compile(username, dc)
 	if err != nil {
 		u.logger.Error(err)
 		return nil, err
-	}
-
-	// 保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
-	files := make(map[string]*bytes.Reader)
-	for k, v := range dc {
-		if strings.HasSuffix(k, ".proto") {
-			files[k] = bytes.NewReader(v.Bytes())
-		}
-	}
-
-	// 这里保存文件的错误不返回，避免影响服务容器的启动
-	err = u.repo.SaveClientCode(username, files)
-	if err != nil {
-		u.logger.Error(err)
 	}
 
 	return result, nil
@@ -93,13 +97,14 @@ func (u *BuildUsecase) BuildDCServiceExe(
 func (u *BuildUsecase) BuildDPServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
 	*bytes.Reader, error) {
-	// 先查询是否已经编译过相关文件
+	// 由于账号注册失败时保存的编译缓存是无效的，因此先判断账号是否有效，有效才允许使用缓存
+	// （只有保存了客户端代码的账号，视作进行了稳定的编译，才能使用缓存）
 	compiled, ok := u.dpCompiler.IsCompiled(username)
-	if ok {
+	if ok && u.repo.IsValid(username) {
 		return compiled, nil
 	}
 
-	// 未查询到，则重新生成代码并编译
+	// 缓存无效或未查询到，则重新生成代码并编译
 	dp, err := u.generator.GetDataProcessingServiceFiles(configs, states)
 	if err != nil {
 		u.logger.Error(err)

@@ -28,13 +28,18 @@ type Compiler struct {
 	// 用于控制并发的读写锁
 	rwMutex *sync.RWMutex
 	// 存放编译结果的表
-	table map[string]*bytes.Buffer
+	table map[string]*tableNode
 	// 管理协程的协程组
 	eg     *errgroup.Group
 	ctx    context.Context
 	cancel func()
 	// 用于复用bytes.Buffer的池
 	pool *sync.Pool
+}
+
+type tableNode struct {
+	buffer *bytes.Buffer
+	ticker *time.Ticker
 }
 
 func NewCompiler(dir *conf.Service_Compiler_CodeDir, timeout time.Duration) *Compiler {
@@ -46,7 +51,7 @@ func NewCompiler(dir *conf.Service_Compiler_CodeDir, timeout time.Duration) *Com
 		serviceDir: dir.ServiceDir,
 		timeout:    timeout,
 		rwMutex:    new(sync.RWMutex),
-		table:      make(map[string]*bytes.Buffer),
+		table:      make(map[string]*tableNode),
 		eg:         new(errgroup.Group),
 		ctx:        ctx,
 		cancel:     cancel,
@@ -56,16 +61,21 @@ func NewCompiler(dir *conf.Service_Compiler_CodeDir, timeout time.Duration) *Com
 	}
 }
 func (c *Compiler) autoClearCache(key string) {
-	select {
-	case <-time.After(c.timeout):
-		// 超时，将使用的buffer放回池中，并删除掉key
-		c.rwMutex.Lock()
-		c.table[key].Reset()
-		c.pool.Put(c.table[key])
-		delete(c.table, key)
-		c.rwMutex.Unlock()
-	case <-c.ctx.Done():
-		return
+	if node, ok := c.table[key]; ok {
+		defer node.ticker.Stop()
+		select {
+		case <-node.ticker.C:
+			// 超时，将使用的buffer放回池中，并删除掉key
+			c.rwMutex.Lock()
+			if node.buffer != nil {
+				node.buffer.Reset()
+				c.pool.Put(node.buffer)
+			}
+			delete(c.table, key)
+			c.rwMutex.Unlock()
+		case <-c.ctx.Done():
+			return
+		}
 	}
 }
 
@@ -80,33 +90,38 @@ func (c *Compiler) IsCompiled(key string) (*bytes.Reader, bool) {
 	c.rwMutex.RLock()
 	defer c.rwMutex.RUnlock()
 	// 先查询缓存
-	if buffer, ok := c.table[key]; ok {
-		return bytes.NewReader(buffer.Bytes()), true
+	if node, ok := c.table[key]; ok {
+		node.ticker.Reset(c.timeout)
+		return bytes.NewReader(node.buffer.Bytes()), true
 	}
 	return nil, false
 }
 
-// Compile 以指定的key执行编译
+// Compile 以指定的key强制执行编译，若key已存在，会覆盖保存的缓存
 func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 	exe *bytes.Reader, err error) {
-	// 先查询缓存
-	compiled, ok := c.IsCompiled(key)
-	if ok {
-		return compiled, nil
-	}
-
-	// 缓存中不存在，执行编译
+	// 执行编译，利用锁确保项目目录被单独的编译程序使用
 	c.rwMutex.Lock()
 	defer c.rwMutex.Unlock()
 
-	// 获得存放编译结果的buffer
-	buffer := c.pool.Get().(*bytes.Buffer)
-	defer func() {
-		if err != nil {
-			buffer.Reset()
-			c.pool.Put(buffer)
+	// 先查询缓存表，看是否需要再从池中取得buffer
+	var buffer *bytes.Buffer
+	if node, ok := c.table[key]; ok {
+		node.ticker.Reset(c.timeout)
+		buffer = node.buffer
+		buffer.Reset()
+	} else {
+		buffer = c.pool.Get().(*bytes.Buffer)
+		c.table[key] = &tableNode{
+			buffer: buffer,
+			ticker: time.NewTicker(c.timeout),
 		}
-	}()
+		// 注册自动清理的协程
+		c.eg.Go(func() error {
+			c.autoClearCache(key)
+			return nil
+		})
+	}
 
 	// 执行编译
 	err = c.compileTo(code, buffer)
@@ -114,14 +129,12 @@ func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 		return
 	}
 
-	// 将结果放入缓存表中
-	c.table[key] = buffer
-
-	// 注册自动清理的协程
-	c.eg.Go(func() error {
-		c.autoClearCache(key)
-		return nil
-	})
+	defer func() {
+		// 当程序发生错误时，直接通过调用计时器清理掉节点和buffer
+		if err != nil {
+			c.table[key].ticker.Reset(time.Nanosecond)
+		}
+	}()
 
 	return bytes.NewReader(buffer.Bytes()), nil
 }

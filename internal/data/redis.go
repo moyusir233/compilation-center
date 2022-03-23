@@ -9,8 +9,10 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 )
 
-// ClientCodeKey 保存客户端代码hash的key
-const ClientCodeKey = "client_code"
+const (
+	// CLIENT_CODE_KEY 用户客户端代码hash的key
+	CLIENT_CODE_KEY = "client_code"
+)
 
 // RedisRepo redis数据库操作对象，可以理解为dao
 type RedisRepo struct {
@@ -46,5 +48,15 @@ func (r *RedisRepo) SaveClientCode(key string, files map[string]*bytes.Reader) e
 
 	// 以十六进制字符串的形式保存二进制数据
 	value := fmt.Sprintf("%x", result.Bytes())
-	return r.client.HSetNX(context.Background(), ClientCodeKey, key, value).Err()
+	return r.client.HSetNX(context.Background(), CLIENT_CODE_KEY, key, value).Err()
+}
+
+// IsValid 通过判断数据库中是否存在客户端的代码信息，判断账号是否有效
+func (r *RedisRepo) IsValid(username string) bool {
+	exist, err := r.client.HExists(context.Background(), CLIENT_CODE_KEY, username).Result()
+	if err != nil {
+		return false
+	}
+
+	return exist
 }
