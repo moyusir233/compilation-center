@@ -19,7 +19,7 @@ import (
 
 // initApp init kratos application.
 func initApp(confServer *conf.Server, confService *conf.Service, logger log.Logger) (*kratos.App, error) {
-	buildUsecase, err := biz.NewBuildUsecase(confService)
+	buildUsecase, err := biz.NewBuildUsecase(confService, logger)
 	if err != nil {
 		return nil, err
 	}

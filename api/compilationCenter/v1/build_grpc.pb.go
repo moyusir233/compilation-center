@@ -22,8 +22,9 @@ const _ = grpc.SupportPackageIsVersion7
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type BuildClient interface {
-	// 获得数据收集服务和数据处理服务的可执行程序
+	// 获得数据收集服务的可执行程序
 	GetDataCollectionServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataCollectionServiceProgramClient, error)
+	// 获得数据数据处理服务的可执行程序
 	GetDataProcessingServiceProgram(ctx context.Context, in *BuildRequest, opts ...grpc.CallOption) (Build_GetDataProcessingServiceProgramClient, error)
 }
 
@@ -103,8 +104,9 @@ func (x *buildGetDataProcessingServiceProgramClient) Recv() (*BuildReply, error)
 // All implementations must embed UnimplementedBuildServer
 // for forward compatibility
 type BuildServer interface {
-	// 获得数据收集服务和数据处理服务的可执行程序
+	// 获得数据收集服务的可执行程序
 	GetDataCollectionServiceProgram(*BuildRequest, Build_GetDataCollectionServiceProgramServer) error
+	// 获得数据数据处理服务的可执行程序
 	GetDataProcessingServiceProgram(*BuildRequest, Build_GetDataProcessingServiceProgramServer) error
 	mustEmbedUnimplementedBuildServer()
 }
