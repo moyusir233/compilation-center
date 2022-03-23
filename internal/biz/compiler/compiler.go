@@ -77,12 +77,12 @@ func (c *Compiler) Close() error {
 
 // Compile 以指定的key执行编译
 func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
-	exe *bytes.Buffer, err error) {
+	exe *bytes.Reader, err error) {
 	c.rwMutex.RLock()
 	// 先查询缓存
 	if buffer, ok := c.table[key]; ok {
 		c.rwMutex.RUnlock()
-		return buffer, nil
+		return bytes.NewReader(buffer.Bytes()), nil
 	}
 
 	// 由于缓存中未查询到，需要执行编译
@@ -92,29 +92,30 @@ func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 	defer c.rwMutex.Unlock()
 
 	// 获得存放编译结果的buffer
-	exe = c.pool.Get().(*bytes.Buffer)
+	buffer := c.pool.Get().(*bytes.Buffer)
 	defer func() {
 		if err != nil {
-			exe.Reset()
-			c.pool.Put(exe)
+			buffer.Reset()
+			c.pool.Put(buffer)
 		}
 	}()
 
 	// 执行编译
-	err = c.compileTo(code, exe)
+	err = c.compileTo(code, buffer)
 	if err != nil {
 		return
 	}
 
 	// 将结果放入缓存表中
-	c.table[key] = exe
+	c.table[key] = buffer
 
 	// 注册自动清理的协程
 	c.eg.Go(func() error {
 		c.autoClearCache(key)
 		return nil
 	})
-	return
+
+	return bytes.NewReader(buffer.Bytes()), nil
 }
 
 // 通过执行shell完成编译

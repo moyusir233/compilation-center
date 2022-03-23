@@ -38,7 +38,7 @@ func NewBuildUsecase(service *conf.Service, logger log.Logger) (*BuildUsecase, e
 // BuildDCServiceExe 编译数据收集服务的二进制程序
 func (u *BuildUsecase) BuildDCServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
-	*bytes.Buffer, error) {
+	*bytes.Reader, error) {
 	dc, err := u.generator.GetDataCollectionServiceFiles(configs, states)
 	if err != nil {
 		u.logger.Error(err)
@@ -57,7 +57,7 @@ func (u *BuildUsecase) BuildDCServiceExe(
 // BuildDPServiceExe 编译数据处理服务的二进制程序
 func (u *BuildUsecase) BuildDPServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
-	*bytes.Buffer, error) {
+	*bytes.Reader, error) {
 	dp, err := u.generator.GetDataProcessingServiceFiles(configs, states)
 	if err != nil {
 		u.logger.Error(err)
