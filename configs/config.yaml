@@ -1,7 +1,7 @@
 server:
   grpc:
     addr: 0.0.0.0:9000
-    timeout: 60s
+    timeout: 600s
 service:
   codeGenerator:
     dataCollectionTmplRoot: /app/compilation-center/internal/biz/codegenerator/data-collection-template
