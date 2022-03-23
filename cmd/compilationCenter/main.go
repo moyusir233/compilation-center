@@ -53,10 +53,11 @@ func main() {
 		panic(err)
 	}
 
-	app, err := initApp(bc.Server, bc.Service, logger)
+	app, cleanUp, err := initApp(bc.Server, bc.Service, bc.Data, logger)
 	if err != nil {
 		panic(err)
 	}
+	defer cleanUp()
 
 	// start and wait for stop signal
 	if err := app.Run(); err != nil {

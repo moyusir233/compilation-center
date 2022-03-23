@@ -75,19 +75,27 @@ func (c *Compiler) Close() error {
 	return c.eg.Wait()
 }
 
+// IsCompiled 查询指定的key是否已经编译过,若是则返回key对应的文件和true，否则返回nil和false
+func (c *Compiler) IsCompiled(key string) (*bytes.Reader, bool) {
+	c.rwMutex.RLock()
+	defer c.rwMutex.RUnlock()
+	// 先查询缓存
+	if buffer, ok := c.table[key]; ok {
+		return bytes.NewReader(buffer.Bytes()), true
+	}
+	return nil, false
+}
+
 // Compile 以指定的key执行编译
 func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 	exe *bytes.Reader, err error) {
-	c.rwMutex.RLock()
 	// 先查询缓存
-	if buffer, ok := c.table[key]; ok {
-		c.rwMutex.RUnlock()
-		return bytes.NewReader(buffer.Bytes()), nil
+	compiled, ok := c.IsCompiled(key)
+	if ok {
+		return compiled, nil
 	}
 
-	// 由于缓存中未查询到，需要执行编译
-	// 占据写锁，确保始终只有一次编译过程
-	c.rwMutex.RUnlock()
+	// 缓存中不存在，执行编译
 	c.rwMutex.Lock()
 	defer c.rwMutex.Unlock()
 

@@ -8,6 +8,7 @@ import "google/protobuf/duration.proto";
 message Bootstrap {
   Server server = 1;
   Service service = 2;
+  Data data = 3;
 }
 
 message Server {
@@ -37,4 +38,21 @@ message Service{
   }
   CodeGenerator code_generator = 1;
   Compiler compiler = 2;
+}
+message Data {
+  message Redis {
+    // redis service的主机地址
+    string host = 1;
+    // redis server端口
+    int64 server_port = 2;
+    // redis sentinel端口
+    int64 sentinel_port = 3;
+    // redis sentinel集群使用的master标识名
+    string master_name = 4;
+    // redis连接池大小
+    int64 pool_size = 5;
+    // redis连接池的最小空闲连接数
+    int64 min_idle_conns = 6;
+  }
+  Redis redis = 1;
 }

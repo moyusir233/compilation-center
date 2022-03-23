@@ -40,7 +40,7 @@ func StartCompilationCenterServer(t *testing.T) v1.BuildClient {
 		t.Fatal(err)
 	}
 
-	app, err := initApp(bootstrap.Server, bootstrap.Service, log.DefaultLogger)
+	app, cleanUp, err := initApp(bootstrap.Server, bootstrap.Service, bootstrap.Data, log.DefaultLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -56,6 +56,7 @@ func StartCompilationCenterServer(t *testing.T) v1.BuildClient {
 	t.Cleanup(func() {
 		app.Stop()
 		<-done
+		cleanUp()
 	})
 
 	for {
