@@ -69,13 +69,13 @@ func (u *BuildUsecase) BuildDCServiceExe(
 	}
 
 	// 在后台保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
-	go func() {
-		files := make(map[string]*bytes.Reader)
-		for k, v := range dc {
-			if strings.HasSuffix(k, ".proto") {
-				files[k] = bytes.NewReader(v.Bytes())
-			}
+	files := make(map[string]*bytes.Reader)
+	for k, v := range dc {
+		if strings.HasSuffix(k, ".proto") {
+			files[k] = bytes.NewReader(v.Bytes())
 		}
+	}
+	go func() {
 		// 这里保存文件的错误不返回，避免影响服务容器的启动
 		err = u.repo.SaveClientCode(username, files)
 		if err != nil {
