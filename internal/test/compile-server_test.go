@@ -5,7 +5,6 @@ import (
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
 	"github.com/go-kratos/kratos/v2/errors"
-	g "github.com/go-kratos/kratos/v2/transport/grpc"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
@@ -15,16 +14,16 @@ import (
 )
 
 func TestCompilationCenter(t *testing.T) {
-	//// 启动服务器，获得客户端
-	//client := StartCompilationCenterServer(t)
+	// 启动服务器，获得客户端
+	client := StartCompilationCenterServer(t)
 
-	// 连接远程的编译中心进行测试
-	conn, err := g.DialInsecure(context.Background(),
-		g.WithEndpoint("compilation-center.test.svc.cluster.local:9000"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	client := v1.NewBuildClient(conn)
+	//// 连接远程的编译中心进行测试
+	//conn, err := g.DialInsecure(context.Background(),
+	//	g.WithEndpoint("compilation-center.test.svc.cluster.local:9000"))
+	//if err != nil {
+	//	t.Fatal(err)
+	//}
+	//client := v1.NewBuildClient(conn)
 
 	// 定义注册信息
 	configInfo := []*utilApi.DeviceConfigRegisterInfo{

@@ -1,7 +1,3 @@
-{{/*
-生成预警检测服务相应的源代码，需要注入一个结构体切片，
-其中每个结构体要包含DeviceClassID字段
-*/}}
 package service
 
 import (
@@ -24,9 +20,12 @@ type WarningDetectService struct {
 }
 
 func NewWarningDetectService(wu *biz.WarningDetectUsecase, logger log.Logger) (
-	*WarningDetectService, func()) {
+		*WarningDetectService, func(), error) {
 	// 开启预警检测
-	wu.StartDetection()
+	err := wu.StartDetection()
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// 返回关闭预警检测的清理函数
 	return &WarningDetectService{
@@ -35,35 +34,56 @@ func NewWarningDetectService(wu *biz.WarningDetectUsecase, logger log.Logger) (
 			logger:               log.NewHelper(logger),
 		}, func() {
 			wu.CloseDetection()
-		}
+		}, nil
 }
 
-{{range .}}
-{{template "BatchGetDeviceState" .}}
-{{end}}
+func (s *WarningDetectService) BatchGetDeviceStateInfo(ctx context.Context, req *pb.BatchGetDeviceStateRequest) (*pb.BatchGetDeviceStateReply, error) {
+	option := new(biz.QueryOption)
+
+	if req.Past != nil && req.Past.AsDuration() != 0 {
+		option.Past = req.Past.AsDuration()
+	} else if req.Start != nil {
+		start := req.Start.AsTime()
+		option.Start = &start
+		if req.End != nil {
+			stop := req.End.AsTime()
+			option.Stop = &stop
+		}
+	}
+
+	if req.Filter != nil {
+		option.Filter = req.Filter
+	} else {
+		option.Filter = make(map[string]string)
+	}
+
+	states, err := s.warningDetectUsecase.BatchGetDeviceStateInfo(int(req.DeviceClassId), option)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.BatchGetDeviceStateReply{States: states}, nil
+}
 
 func (s *WarningDetectService) BatchGetWarning(ctx context.Context, req *pb.BatchGetWarningRequest) (*pb.BatchGetWarningReply, error) {
-	// 构造查询选项
-	var begin, end int64
-	if req.Start != nil {
-		begin = req.Start.AsTime().Unix()
-	} else {
-		begin = 0
-	}
-	if req.End != nil {
-		end = req.End.AsTime().Unix()
-	} else {
-		end = 0
-	}
-
-	option := &biz.QueryOption{
-		Begin:  begin,
-		End:    end,
-		Offset: (req.Page - 1) * req.Count,
-		Count:  req.Count,
+	option := new(biz.QueryOption)
+	if req.Past != nil && req.Past.AsDuration() != 0 {
+		option.Past = req.Past.AsDuration()
+	} else if req.Start != nil {
+		start := req.Start.AsTime()
+		option.Start = &start
+		if req.End != nil {
+			stop := req.End.AsTime()
+			option.Stop = &stop
+		}
 	}
 
-	// 调用biz层的查询函数
+	if req.Filter != nil {
+		option.Filter = req.Filter
+	} else {
+		option.Filter = make(map[string]string)
+	}
+
 	warnings, err := s.warningDetectUsecase.BatchGetWarning(option)
 	if err != nil {
 		return nil, err

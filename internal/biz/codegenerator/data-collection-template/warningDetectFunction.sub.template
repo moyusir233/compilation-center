@@ -18,9 +18,17 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 		fields = map[string]float64{
 		{{range .Fields -}}
 		{{if .Warning}}
-			"{{camelCase .Name}}": 0,
+			"{{.Name}}": 0,
 		{{end}}
         {{- end}}
+		}
+		// 设备非时间，非id的非预警字段，代码生成时注入
+		tags = map[string]string{
+		{{range .Fields -}}
+		{{if and (not .Warning) (ne .Name "time") (ne .Name "id")}}
+			"{{.Name}}": "",
+		{{end}}
+		{{- end}}
 		}
 	)
 
@@ -61,7 +69,9 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 
     {{range .Fields}}
 		{{if .Warning}}
-		fields["{{camelCase .Name}}"] = float64(state.{{camelCase .Name}})
+		fields["{{.Name}}"] = float64(state.{{camelCase .Name}})
+		{{else if and (ne .Name "time") (ne .Name "id")}}
+		tags["{{.Name}}"] = fmt.Sprintf("%v",state.{{camelCase .Name}})
 		{{end}}
     {{end}}
 
@@ -70,7 +80,7 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 		if err != nil {
 			return err
 		}
-		err = s.uc.SaveDeviceState(info, state, fields)
+		err = s.uc.SaveDeviceState(info, fields, tags)
 		if err != nil {
 			return err
 		}
