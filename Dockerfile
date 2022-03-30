@@ -4,11 +4,7 @@ COPY . /src
 WORKDIR /src
 
 # 配置环境，执行编译
-RUN go env -w GOPRIVATE=gitee.com \
-    && go env -w GOPROXY=https://goproxy.cn,https://goproxy.io,direct \
-    && git config --global url."git@gitee.com:".insteadOf https://gitee.com/ \
-    && cp -r key /root/.ssh && chmod -R 0600 /root/.ssh/* \
-    && make build && mv bin/$(ls bin) bin/server
+RUN mkdir bin && go build -o ./bin ./... && mv bin/$(ls bin) bin/server
 
 FROM golang:1.17
 

@@ -3,7 +3,6 @@ module gitee.com/moyusir/compilation-center
 go 1.17
 
 require (
-	gitee.com/moyusir/service-centre v0.0.0-20220214135703-97db57a0d14c
 	gitee.com/moyusir/util v0.1.4
 	github.com/go-kratos/kratos/v2 v2.2.1
 	github.com/go-redis/redis/v8 v8.11.5
