@@ -3,6 +3,7 @@ package service
 import (
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	"gitee.com/moyusir/compilation-center/internal/biz"
+	"github.com/go-kratos/kratos/v2/errors"
 )
 
 type BuildService struct {
@@ -32,7 +33,8 @@ func (b *BuildService) GetDataCollectionServiceProgram(request *v1.BuildRequest,
 		reply.Exe = reply.Exe[:n]
 		err = stream.Send(reply)
 		if err != nil {
-			return err
+			return errors.Newf(
+				500, "Service_Error", "发送数据收集服务可执行程序时发生了错误:%v", err)
 		}
 	}
 	return nil
@@ -56,7 +58,8 @@ func (b *BuildService) GetDataProcessingServiceProgram(request *v1.BuildRequest,
 		reply.Exe = reply.Exe[:n]
 		err = stream.Send(reply)
 		if err != nil {
-			return err
+			return errors.Newf(
+				500, "Service_Error", "发送数据处理服务可执行程序时发生了错误:%v", err)
 		}
 	}
 	return nil

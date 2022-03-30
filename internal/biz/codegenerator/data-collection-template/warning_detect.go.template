@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"gitee.com/moyusir/data-collection/internal/biz"
 	"gitee.com/moyusir/data-collection/internal/conf"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"

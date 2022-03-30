@@ -101,6 +101,7 @@ func (s *WarningDetectService) ServeWebsocketConnection(w http.ResponseWriter, r
 	// 利用前端发送的http请求建立ws连接
 	conn, err := s.upgrader.Upgrade(w, r, nil)
 	if err != nil {
+		s.logger.Errorf("建立ws连接时发生了错误:%v", err)
 		return err
 	}
 

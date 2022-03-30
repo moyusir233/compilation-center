@@ -6,6 +6,7 @@ import (
 	"gitee.com/moyusir/compilation-center/internal/biz/compiler"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"strings"
 )
@@ -64,8 +65,8 @@ func (u *BuildUsecase) BuildDCServiceExe(
 	// 缓存无效或未查询到，则重新生成代码并编译
 	dc, err := u.generator.GetDataCollectionServiceFiles(configs, states)
 	if err != nil {
-		u.logger.Error(err)
-		return nil, err
+		return nil, errors.Newf(
+			500, "Biz_Error", "生成数据收集服务代码时发生了错误:%v", err)
 	}
 
 	// 在后台保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
@@ -86,8 +87,8 @@ func (u *BuildUsecase) BuildDCServiceExe(
 	// 编译获得可执行程序
 	result, err := u.dcCompiler.Compile(username, dc)
 	if err != nil {
-		u.logger.Error(err)
-		return nil, err
+		return nil, errors.Newf(
+			500, "Biz_Error", "编译数据收集服务代码时发生了错误:%v", err)
 	}
 
 	return result, nil
@@ -107,14 +108,14 @@ func (u *BuildUsecase) BuildDPServiceExe(
 	// 缓存无效或未查询到，则重新生成代码并编译
 	dp, err := u.generator.GetDataProcessingServiceFiles(configs, states)
 	if err != nil {
-		u.logger.Error(err)
-		return nil, err
+		return nil, errors.Newf(
+			500, "Biz_Error", "生成数据处理服务代码时发生了错误:%v", err)
 	}
 
 	result, err := u.dpCompiler.Compile(username, dp)
 	if err != nil {
-		u.logger.Error(err)
-		return nil, err
+		return nil, errors.Newf(
+			500, "Biz_Error", "编译数据处理服务代码时发生了错误:%v", err)
 	}
 
 	return result, nil

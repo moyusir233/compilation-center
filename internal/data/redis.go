@@ -6,7 +6,9 @@ import (
 	"context"
 	"fmt"
 	"gitee.com/moyusir/compilation-center/internal/biz"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"github.com/go-redis/redis/v8"
 )
 
 const (
@@ -43,12 +45,19 @@ func (r *RedisRepo) SaveClientCode(key string, files map[string]*bytes.Reader) e
 	}
 	err := zipWriter.Close()
 	if err != nil {
-		return err
+		return errors.Newf(
+			500, "Repo_Error", "将客户端代码压缩成zip文件时发生了错误:%v", err)
 	}
 
 	// 以十六进制字符串的形式保存二进制数据
 	value := fmt.Sprintf("%x", result.Bytes())
-	return r.client.HSetNX(context.Background(), CLIENT_CODE_KEY, key, value).Err()
+	err = r.client.HSetNX(context.Background(), CLIENT_CODE_KEY, key, value).Err()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		return errors.Newf(
+			500, "Repo_Error", "将客户端代码写入redis时发生了错误:%v", err)
+	}
+
+	return nil
 }
 
 // IsValid 通过判断数据库中是否存在客户端的代码信息，判断账号是否有效

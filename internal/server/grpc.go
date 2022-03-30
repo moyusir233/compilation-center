@@ -14,7 +14,9 @@ import (
 func NewGRPCServer(c *conf.Server, us *service.BuildService, logger log.Logger) *grpc.Server {
 	var opts = []grpc.ServerOption{
 		grpc.Middleware(
-			recovery.Recovery(),
+			recovery.Recovery(
+				recovery.WithLogger(logger),
+			),
 			logging.Server(logger),
 		),
 	}
