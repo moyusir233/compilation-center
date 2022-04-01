@@ -37,65 +37,78 @@ func (s *WarningDetectService) CreateStateInfoSaveStream{{.DeviceClassID}}(conn 
 	if value := md.Get(CLIENT_ID_HEADER); ok && len(value) != 0 {
 		clientID = value[0]
 	} else {
-		// 若请求头中不存在，则分配clientID，通过响应头并发送给客户端
-		// 利用uuid作为clientID，使用的uuid version1
-		uid, err := uuid.NewUUID()
+		// 若请求头中不存在，则申请创建新的clientID，通过响应头并发送给客户端
+		id, err := s.updater.CreateClientID()
 		if err != nil {
-			clientID = fmt.Sprintf("%s%d", conf.Username, time.Now().Unix())
+			return err
 		} else {
-			clientID = uid.String()
+			clientID = id
 		}
-	}
-
-	// 将clientID存放到响应头中发送
-	md = metadata.New(map[string]string{CLIENT_ID_HEADER: clientID})
-	// TODO 考虑错误处理
-	if err := conn.SendHeader(md); err != nil {
-		return errors.Newf(
-			500, "Service_State_Error", "发送grpc请求头时发生了错误:%v", err)
+		// 将clientID存放到响应头中发送
+		md = metadata.New(map[string]string{CLIENT_ID_HEADER: clientID})
+		err = conn.SendHeader(md)
+		// TODO 考虑错误处理
+		if err != nil {
+			return errors.Newf(
+				500, "Service_State_Error", "发送grpc请求头时发生了错误:%v", err)
+		}
 	}
 
 	s.logger.Infof("与 %v 建立了传输设备状态信息的grpc流", clientID)
 
 	for {
-		state, err := conn.Recv()
-		if err == io.EOF {
+		var (
+			state *pb.DeviceState{{.DeviceClassID}}
+			err   error
+		)
+		recvCtx, cancel := context.WithCancel(context.Background())
+		go func() {
+			defer cancel()
+			state, err = conn.Recv()
+		}()
+
+		select {
+		case <-conn.Context().Done():
 			s.logger.Infof("关闭了 %v 的传输设备状态信息的grpc流", clientID)
 			return nil
-		}
-		if err != nil {
-			return errors.Newf(
-				500, "Service_State_Error",
-				"接收用户 %v 传输的设备状态信息时发生了错误:%v", clientID, err)
-		}
+		case <-recvCtx.Done():
+			if err == io.EOF {
+				s.logger.Infof("关闭了 %v 的传输设备状态信息的grpc流", clientID)
+				return nil
+			}
+			if err != nil {
+				return errors.Newf(
+					500, "Service_State_Error",
+					"接收用户 %v 传输的设备状态信息时发生了错误:%v", clientID, err)
+			}
+			// 提取设备状态信息进行路由激活以及保存
+			info := &biz.DeviceGeneralInfo{DeviceClassID: deviceClassID}
+			info.DeviceID = state.Id
 
-		// 提取设备状态信息进行路由激活以及保存
-		info := &biz.DeviceGeneralInfo{DeviceClassID: deviceClassID}
-		info.DeviceID = state.Id
-
-    {{range .Fields}}
-		{{if .Warning}}
-		fields["{{.Name}}"] = float64(state.{{camelCase .Name}})
-		{{else if and (ne .Name "time") (ne .Name "id")}}
-		tags["{{.Name}}"] = fmt.Sprintf("%v",state.{{camelCase .Name}})
+		{{range .Fields}}
+			{{if .Warning}}
+			fields["{{.Name}}"] = float64(state.{{camelCase .Name}})
+			{{else if and (ne .Name "time") (ne .Name "id")}}
+			tags["{{.Name}}"] = fmt.Sprintf("%v",state.{{camelCase .Name}})
+			{{end}}
 		{{end}}
-    {{end}}
 
-		// TODO 考虑路由激活以及保存设备状态出错时如何处理
-		err = s.manager.ActivateRoute(clientID, info)
-		if err != nil {
-			return err
-		}
-		err = s.uc.SaveDeviceState(info, state.Time.AsTime(),fields, tags)
-		if err != nil {
-			return err
-		}
+			// TODO 考虑路由激活以及保存设备状态出错时如何处理
+			err = s.updater.ConnectDeviceAndClientID(clientID, info)
+			if err != nil {
+				return err
+			}
+			err = s.uc.SaveDeviceState(info, state.Time.AsTime(), fields, tags)
+			if err != nil {
+				return err
+			}
 
-		err = conn.Send(&pb.WarningDetectServiceReply{Success: true})
-		if err != nil {
-			return errors.Newf(
-				500, "Service_State_Error",
-				"向用户 %v 发送传输设备状态的响应信息时发生了错误:%v", clientID, err)
+			err = conn.Send(&pb.WarningDetectServiceReply{Success: true})
+			if err != nil {
+				return errors.Newf(
+					500, "Service_State_Error",
+					"向用户 %v 发送传输设备状态的响应信息时发生了错误:%v", clientID, err)
+			}
 		}
 	}
 }

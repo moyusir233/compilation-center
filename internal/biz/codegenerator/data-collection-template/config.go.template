@@ -6,16 +6,12 @@ package service
 
 import (
 	"context"
-	"fmt"
 	pb "gitee.com/moyusir/data-collection/api/dataCollection/v1"
 	"gitee.com/moyusir/data-collection/internal/biz"
-	"gitee.com/moyusir/data-collection/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 	"io"
-	"time"
 )
 
 const CLIENT_ID_HEADER = "x-client-id"
@@ -23,27 +19,20 @@ const CLIENT_ID_HEADER = "x-client-id"
 type ConfigService struct {
 	pb.UnimplementedConfigServer
 	uc      *biz.ConfigUsecase
-	manager *biz.RouteManager
+	updater *biz.DeviceConfigUpdater
 	logger  *log.Helper
 }
 
-func NewConfigService(uc *biz.ConfigUsecase, r *biz.RouteManager, logger log.Logger) (*ConfigService, func(), error) {
+func NewConfigService(uc *biz.ConfigUsecase, updater *biz.DeviceConfigUpdater, logger log.Logger) (*ConfigService, error) {
 	c := &ConfigService{
 		uc:      uc,
-		manager: r,
+		updater: updater,
 		logger:  log.NewHelper(logger),
 	}
-	// 初始化配置更新所需要的路由资源
-	err := c.manager.Init()
-	if err != nil {
-		return nil, nil, err
-	}
-	return c, func() {
-		if err := c.manager.Close(); err != nil {
-			c.logger.Error(err)
-		}
-	}, nil
+
+	return c, nil
 }
+
 {{/* 依据注入的结构体切片生成相应的服务代码 */}}
 {{range .}}
 {{template "CreateInitialConfigSaveStream" .DeviceClassID}}

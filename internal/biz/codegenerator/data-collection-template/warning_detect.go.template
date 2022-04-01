@@ -6,30 +6,26 @@
 package service
 
 import (
-	"fmt"
+	"context"
+	pb "gitee.com/moyusir/data-collection/api/dataCollection/v1"
 	"gitee.com/moyusir/data-collection/internal/biz"
-	"gitee.com/moyusir/data-collection/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
-	"github.com/google/uuid"
 	"google.golang.org/grpc/metadata"
 	"io"
-	"time"
-
-	pb "gitee.com/moyusir/data-collection/api/dataCollection/v1"
 )
 
 type WarningDetectService struct {
 	pb.UnimplementedWarningDetectServer
 	uc      *biz.WarningDetectUsecase
-	manager *biz.RouteManager
+	updater *biz.DeviceConfigUpdater
 	logger  *log.Helper
 }
 
-func NewWarningDetectService(uc *biz.WarningDetectUsecase, r *biz.RouteManager, logger log.Logger) *WarningDetectService {
+func NewWarningDetectService(uc *biz.WarningDetectUsecase, updater *biz.DeviceConfigUpdater, logger log.Logger) *WarningDetectService {
 	return &WarningDetectService{
 		uc:      uc,
-		manager: r,
+		updater: updater,
 		logger:  log.NewHelper(logger),
 	}
 }
