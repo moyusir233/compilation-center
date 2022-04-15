@@ -126,7 +126,7 @@ func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 	// 执行编译
 	err = c.compileTo(code, buffer)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	defer func() {
