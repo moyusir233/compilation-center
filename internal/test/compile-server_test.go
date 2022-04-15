@@ -66,6 +66,16 @@ func TestCompilationCenter(t *testing.T) {
 					WarningRule: nil,
 				},
 				{
+					Name:        "status",
+					Type:        utilApi.Type_BOOL,
+					WarningRule: nil,
+				},
+				{
+					Name:        "device_type",
+					Type:        utilApi.Type_STRING,
+					WarningRule: nil,
+				},
+				{
 					Name: "current",
 					Type: utilApi.Type_DOUBLE,
 					WarningRule: &utilApi.DeviceStateRegisterInfo_WarningRule{
@@ -101,6 +111,16 @@ func TestCompilationCenter(t *testing.T) {
 				{
 					Name:        "time",
 					Type:        utilApi.Type_TIMESTAMP,
+					WarningRule: nil,
+				},
+				{
+					Name:        "status",
+					Type:        utilApi.Type_BOOL,
+					WarningRule: nil,
+				},
+				{
+					Name:        "device_type",
+					Type:        utilApi.Type_STRING,
 					WarningRule: nil,
 				},
 				{

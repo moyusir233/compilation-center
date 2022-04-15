@@ -29,7 +29,14 @@ func NewWarningDetectService(wu *biz.WarningDetectUsecase, logger log.Logger) (
 	// 返回关闭预警检测的清理函数
 	return &WarningDetectService{
 			warningDetectUsecase: wu,
-			upgrader:             &websocket.Upgrader{},
+			upgrader:             &websocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				// 解决跨域问题
+				CheckOrigin: func(r *http.Request) bool {
+					return true
+				},
+			},
 			logger:               log.NewHelper(logger),
 		}, func() {
 			wu.CloseDetection()
