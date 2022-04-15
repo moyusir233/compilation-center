@@ -13,6 +13,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"google.golang.org/grpc/metadata"
 	"io"
+	"fmt"
 )
 
 type WarningDetectService struct {
@@ -21,6 +22,9 @@ type WarningDetectService struct {
 	updater *biz.DeviceConfigUpdater
 	logger  *log.Helper
 }
+
+// 用于导入fmt包
+var _ = fmt.Sprintf("")
 
 func NewWarningDetectService(uc *biz.WarningDetectUsecase, updater *biz.DeviceConfigUpdater, logger log.Logger) *WarningDetectService {
 	return &WarningDetectService{
