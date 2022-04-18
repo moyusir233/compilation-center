@@ -9,7 +9,6 @@ package api.dataProcessing.v1;
 import "google/api/annotations.proto";
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/duration.proto";
-import "util/api/util/v1/general.proto";
 
 option go_package = "gitee.com/moyusir/data-processing/api/dataProcessing/v1;v1";
 option java_multiple_files = true;
@@ -17,9 +16,16 @@ option java_package = "api.dataProcessing.v1";
 
 // 预警检测服务，主要包括设备信息查询与推送相关的服务
 service WarningDetect {
+    // 分页查询设备信息
     rpc BatchGetDeviceStateInfo(BatchGetDeviceStateRequest) returns (BatchGetDeviceStateReply){
         option (google.api.http) = {
             get: "/states/{device_class_id}"
+        };
+    };
+    // 删除设备状态信息
+    rpc DeleteDeviceStateInfo(DeleteDeviceStateRequest) returns (DeleteDeviceStateReply){
+        option (google.api.http) = {
+            delete: "/states/{device_class_id}"
         };
     };
     // 分页查询用户的警告消息
@@ -28,10 +34,17 @@ service WarningDetect {
             get: "/warnings"
         };
     };
-    // 查询指定设备注册的预警规则
-    rpc GetDeviceStateRegisterInfo(GetDeviceStateRegisterInfoRequest) returns (api.util.v1.DeviceStateRegisterInfo) {
+    // 删除用户的警告消息
+    rpc DeleteWarning(DeleteWarningRequest) returns (DeleteWarningReply) {
         option (google.api.http) = {
-            get: "/register-info/states/{device_class_id}"
+            delete: "/warnings"
+        };
+    };
+    // 更新用户的警告消息的处理状态
+    rpc UpdateWarning(UpdateWarningRequest) returns (UpdateWarningReply) {
+        option (google.api.http) = {
+            put: "/warnings"
+            body: "*"
         };
     };
 }
@@ -55,10 +68,28 @@ message BatchGetDeviceStateRequest {
     google.protobuf.Duration past = 4;
     // 查询过滤的条件，可以针对_measurement、_field或tag进行过滤
     map<string, string> filter = 5;
+    // 分页查询参数
+    int32 limit = 6;
+    int32 offset = 7;
 }
 // 设备状态信息批量查询响应
 message BatchGetDeviceStateReply{
     repeated DeviceState states = 1;
+    int32 total = 2;
+}
+
+// 删除设备状态信息请求
+message DeleteDeviceStateRequest{
+    // 设备类别号
+    int32 device_class_id=1;
+    // 设备id
+    string device_id=2;
+    // 时间
+    google.protobuf.Timestamp time = 3;
+}
+// 删除设备状态信息响应
+message DeleteDeviceStateReply{
+    bool success = 1;
 }
 
 // 警告消息批量查询请求
@@ -71,16 +102,56 @@ message BatchGetWarningRequest {
     google.protobuf.Duration past = 3;
     // 查询过滤的条件，可以针对_measurement、_field或tag进行过滤
     map<string, string> filter = 4;
+    // 分页查询参数
+    int32 limit = 5;
+    int32 offset = 6;
 }
 // 警告消息批量查询响应
 message BatchGetWarningReply {
-    repeated api.util.v1.Warning warnings = 1;
+    message Warning{
+        int32 device_class_id = 1;
+        string device_id = 2;
+        google.protobuf.Timestamp start = 3;
+        google.protobuf.Timestamp end = 4;
+        map<string, string> tags = 5;
+        map<string, string> fields = 6;
+    }
+    repeated Warning warnings = 1;
+    int32 total = 2;
 }
 
-// 设备状态注册信息查询请求
-message GetDeviceStateRegisterInfoRequest {
+// 警告信息删除请求
+message DeleteWarningRequest{
     // 设备类别号
-    int64 device_class_id = 1;
+    int32 device_class_id=1;
+    // 设备id
+    string device_id=2;
+    // 设备字段名称
+    string device_field_name=3;
+    // 时间
+    google.protobuf.Timestamp time = 4;
+}
+// 警告信息删除响应
+message DeleteWarningReply{
+    bool success = 1;
+}
+
+// 更新警告信息处理状态请求
+message UpdateWarningRequest{
+    // 设备类别号
+    int32 device_class_id=1;
+    // 设备id
+    string device_id=2;
+    // 设备字段名称
+    string device_field_name=3;
+    // 时间
+    google.protobuf.Timestamp time = 4;
+    // 处理状态
+    bool processed=5;
+}
+// 更新警告信息处理状态响应
+message UpdateWarningReply{
+    bool success = 1;
 }
 
 {{range .}}

@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	pb "gitee.com/moyusir/data-processing/api/dataProcessing/v1"
-	utilApi "gitee.com/moyusir/util/api/util/v1"
 )
 
 type WarningDetectService struct {
@@ -30,7 +29,14 @@ func NewWarningDetectService(wu *biz.WarningDetectUsecase, logger log.Logger) (
 	// 返回关闭预警检测的清理函数
 	return &WarningDetectService{
 			warningDetectUsecase: wu,
-			upgrader:             &websocket.Upgrader{},
+			upgrader:             &websocket.Upgrader{
+				ReadBufferSize:  1024,
+				WriteBufferSize: 1024,
+				// 解决跨域问题
+				CheckOrigin: func(r *http.Request) bool {
+					return true
+				},
+			},
 			logger:               log.NewHelper(logger),
 		}, func() {
 			wu.CloseDetection()
@@ -57,12 +63,24 @@ func (s *WarningDetectService) BatchGetDeviceStateInfo(ctx context.Context, req 
 		option.Filter = make(map[string]string)
 	}
 
-	states, err := s.warningDetectUsecase.BatchGetDeviceStateInfo(int(req.DeviceClassId), option)
+	option.Limit = int(req.Limit)
+	option.Offset = int(req.Offset)
+
+	states, total, err := s.warningDetectUsecase.BatchGetDeviceStateInfo(int(req.DeviceClassId), option)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BatchGetDeviceStateReply{States: states}, nil
+	return &pb.BatchGetDeviceStateReply{States: states, Total: int32(total)}, nil
+}
+
+func (s *WarningDetectService) DeleteDeviceStateInfo(ctx context.Context, request *pb.DeleteDeviceStateRequest) (*pb.DeleteDeviceStateReply, error) {
+	err := s.warningDetectUsecase.DeleteDeviceState(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DeleteDeviceStateReply{Success: true}, nil
 }
 
 func (s *WarningDetectService) BatchGetWarning(ctx context.Context, req *pb.BatchGetWarningRequest) (*pb.BatchGetWarningReply, error) {
@@ -84,17 +102,33 @@ func (s *WarningDetectService) BatchGetWarning(ctx context.Context, req *pb.Batc
 		option.Filter = make(map[string]string)
 	}
 
-	warnings, err := s.warningDetectUsecase.BatchGetWarning(option)
+	option.Limit = int(req.Limit)
+	option.Offset = int(req.Offset)
+
+	warnings, total, err := s.warningDetectUsecase.BatchGetWarning(option)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.BatchGetWarningReply{Warnings: warnings}, nil
+	return &pb.BatchGetWarningReply{Warnings: warnings, Total: int32(total)}, nil
 }
 
-func (s *WarningDetectService) GetDeviceStateRegisterInfo(ctx context.Context, req *pb.GetDeviceStateRegisterInfoRequest) (*utilApi.DeviceStateRegisterInfo, error) {
-	registerInfo := s.warningDetectUsecase.GetDeviceStateRegisterInfo(int(req.DeviceClassId))
-	return registerInfo, nil
+func (s *WarningDetectService) DeleteWarning(ctx context.Context, request *pb.DeleteWarningRequest) (*pb.DeleteWarningReply, error) {
+	err := s.warningDetectUsecase.DeleteWarningMessage(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DeleteWarningReply{Success: true}, nil
+}
+
+func (s *WarningDetectService) UpdateWarning(ctx context.Context, request *pb.UpdateWarningRequest) (*pb.UpdateWarningReply, error) {
+	err := s.warningDetectUsecase.UpdateWarningProcessedState(request)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.UpdateWarningReply{Success: true}, nil
 }
 
 func (s *WarningDetectService) ServeWebsocketConnection(w http.ResponseWriter, r *http.Request) error {
