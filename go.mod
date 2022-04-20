@@ -3,7 +3,7 @@ module gitee.com/moyusir/compilation-center
 go 1.17
 
 require (
-	gitee.com/moyusir/util v1.1.0
+	gitee.com/moyusir/util v1.1.1
 	github.com/go-kratos/kratos/v2 v2.2.1
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang/protobuf v1.5.2
@@ -22,6 +22,9 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/magefile/mage v1.9.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	go.elastic.co/ecszap v1.0.1-0.20210922110956-698ab8c60e81 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
