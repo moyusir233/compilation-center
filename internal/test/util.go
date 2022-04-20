@@ -35,7 +35,7 @@ func newApp(logger log.Logger, gs *grpc.Server) *kratos.App {
 }
 
 func StartCompilationCenterServer(t *testing.T) v1.BuildClient {
-	bootstrap, err := conf.LoadConfig("../../configs/config.yaml")
+	bootstrap, err := conf.LoadConfig("../../configs/config.yaml", log.DefaultLogger)
 	if err != nil {
 		t.Fatal(err)
 	}
