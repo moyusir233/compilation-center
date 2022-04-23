@@ -3,12 +3,15 @@ package data
 import (
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"context"
 	"fmt"
 	"gitee.com/moyusir/compilation-center/internal/biz"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-redis/redis/v8"
+	"io"
+	"time"
 )
 
 const (
@@ -68,4 +71,57 @@ func (r *RedisRepo) IsValid(username string) bool {
 	}
 
 	return exist
+}
+
+func (r *RedisRepo) SaveExe(key string, content []byte, expire time.Duration) error {
+	// 将二进制文件经过gzip压缩后再保存到redis中
+	buffer := bytes.NewBuffer(make([]byte, 0, 1024))
+	gzipWriter, err := gzip.NewWriterLevel(buffer, gzip.BestCompression)
+	if err != nil {
+		return errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
+	}
+
+	_, err = gzipWriter.Write(content)
+	if err != nil {
+		return errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
+	}
+
+	err = gzipWriter.Close()
+	if err != nil {
+		return errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
+	}
+
+	err = r.client.SetEX(context.Background(), key, string(buffer.Bytes()), expire).Err()
+	if err != nil {
+		return errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
+	}
+
+	return nil
+}
+
+func (r *RedisRepo) GetExe(key string) ([]byte, error) {
+	result, err := r.client.Get(context.Background(), key).Result()
+	if err != nil {
+		return nil, errors.Newf(
+			500, "Save_Exe_Error", "查询可执行文件的缓存时发生了错误:%s", err)
+	}
+
+	// 解压
+	reader, err := gzip.NewReader(bytes.NewReader([]byte(result)))
+	if err != nil {
+		return nil, errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip解压时发生了错误:%s", err)
+	}
+
+	exe, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, errors.Newf(
+			500, "Save_Exe_Error", "将可执行文件进行gzip解压时发生了错误:%s", err)
+	}
+
+	return exe, nil
 }

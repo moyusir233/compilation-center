@@ -1,6 +1,9 @@
 package test
 
 import (
+	"archive/zip"
+	"bytes"
+	"compress/gzip"
 	"context"
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
@@ -8,7 +11,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
-	"os"
+	"io/ioutil"
 	"testing"
 	"time"
 )
@@ -152,8 +155,7 @@ func TestCompilationCenter(t *testing.T) {
 	}
 
 	// 读取流的辅助函数
-	readExeStreamToFile := func(stream grpc.ClientStream, file *os.File) error {
-		defer file.Close()
+	readExeStreamToWriter := func(stream grpc.ClientStream, writer io.Writer) error {
 		// 读取流中的二进制数据
 		reply := new(v1.BuildReply)
 		for {
@@ -165,7 +167,7 @@ func TestCompilationCenter(t *testing.T) {
 				break
 			}
 			if len(reply.Exe) > 0 {
-				_, err := file.Write(reply.Exe)
+				_, err := writer.Write(reply.Exe)
 				if err != nil {
 					return err
 				}
@@ -174,50 +176,120 @@ func TestCompilationCenter(t *testing.T) {
 		return nil
 	}
 
-	// 调用编译的grpc函数
-	var streams []grpc.ClientStream
-	var files []*os.File
+	// 获得可执行文件
+	getExes := func() ([]*bytes.Buffer, error) {
+		// 调用编译的grpc函数
+		var streams []grpc.ClientStream
+		var buffers []*bytes.Buffer
 
-	{
-		dcStream, err := client.GetDataCollectionServiceProgram(context.Background(), &v1.BuildRequest{
-			Username:                  "test",
-			DeviceStateRegisterInfos:  stateInfo,
-			DeviceConfigRegisterInfos: configInfo,
-		})
-		if err != nil {
-			t.Fatal(err)
+		{
+			dcStream, err := client.GetDataCollectionServiceProgram(context.Background(), &v1.BuildRequest{
+				Username:                  "test",
+				DeviceStateRegisterInfos:  stateInfo,
+				DeviceConfigRegisterInfos: configInfo,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			dcExe := bytes.NewBuffer(make([]byte, 0, 1024))
+
+			streams = append(streams, dcStream)
+			buffers = append(buffers, dcExe)
+		}
+		{
+			dpStream, err := client.GetDataProcessingServiceProgram(context.Background(), &v1.BuildRequest{
+				Username:                  "test",
+				DeviceStateRegisterInfos:  stateInfo,
+				DeviceConfigRegisterInfos: configInfo,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			dpExe := bytes.NewBuffer(make([]byte, 0, 1024))
+
+			streams = append(streams, dpStream)
+			buffers = append(buffers, dpExe)
 		}
 
-		dcExe, err := os.Create("/app/dc")
-		if err != nil {
-			t.Fatal(err)
+		for i, s := range streams {
+			err := readExeStreamToWriter(s, buffers[i])
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		streams = append(streams, dcStream)
-		files = append(files, dcExe)
+		return buffers, nil
 	}
-	{
-		dpStream, err := client.GetDataProcessingServiceProgram(context.Background(), &v1.BuildRequest{
-			Username:                  "test",
-			DeviceStateRegisterInfos:  stateInfo,
-			DeviceConfigRegisterInfos: configInfo,
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		dpExe, err := os.Create("/app/dp")
-		if err != nil {
-			t.Fatal(err)
-		}
 
-		streams = append(streams, dpStream)
-		files = append(files, dpExe)
+	exes, err := getExes()
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	for i, s := range streams {
-		err := readExeStreamToFile(s, files[i])
-		if err != nil {
-			t.Error(err)
+	// 进行第二次，以确定通过缓存得到的可执行文件和原来的一致
+	caches, err := getExes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for i := 0; i < len(exes); i++ {
+		if !bytes.Equal(exes[i].Bytes(), caches[i].Bytes()) {
+			t.Fatal("第一次编译获得的可执行文件和通过缓存获得的可执行文件不一致")
 		}
+	}
+}
+
+func TestTmp(t *testing.T) {
+	file, err := ioutil.ReadFile("util.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	buffer := bytes.NewBuffer(nil)
+	zipWriter := zip.NewWriter(buffer)
+	writer, err := zipWriter.Create("test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = writer.Write(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = zipWriter.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("压缩前:%d,压缩后:%d", len(file), buffer.Len())
+
+	buffer.Reset()
+	gzipWriter, err := gzip.NewWriterLevel(buffer, gzip.BestCompression)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = gzipWriter.Write(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = gzipWriter.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("压缩前:%d,压缩后:%d", len(file), buffer.Len())
+
+	reader, err := gzip.NewReader(bytes.NewReader(buffer.Bytes()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	file2, err := ioutil.ReadAll(reader)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if !bytes.Equal(file, file2) {
+		t.Error("压缩前的文件和解压后的文件不一致")
 	}
 }
