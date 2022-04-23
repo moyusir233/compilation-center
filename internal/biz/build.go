@@ -127,7 +127,7 @@ func (u *BuildUsecase) BuildDPServiceExe(
 	}
 
 	// 编译获得可执行程序
-	result, err := u.dcCompiler.Compile(dp)
+	result, err := u.dpCompiler.Compile(dp)
 	if err != nil {
 		return nil, errors.Newf(
 			500, "Biz_Error", "编译数据收集服务代码时发生了错误:%v", err)
