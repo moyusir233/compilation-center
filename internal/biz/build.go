@@ -97,12 +97,16 @@ func (u *BuildUsecase) BuildDCServiceExe(
 	}
 
 	// 将可执行程序保存到redis缓存中
-	go func() {
-		err = u.repo.SaveExe(key, result, u.expire)
-		if err != nil {
-			u.logger.Error(err)
-		}
-	}()
+	//go func() {
+	//	err = u.repo.SaveExe(key, result, u.expire)
+	//	if err != nil {
+	//		u.logger.Error(err)
+	//	}
+	//}()
+	err = u.repo.SaveExe(key, result, u.expire)
+	if err != nil {
+		u.logger.Error(err)
+	}
 
 	return bytes.NewReader(result), nil
 }
@@ -134,12 +138,16 @@ func (u *BuildUsecase) BuildDPServiceExe(
 	}
 
 	// 将可执行程序保存到redis缓存中
-	go func() {
-		err = u.repo.SaveExe(key, result, u.expire)
-		if err != nil {
-			u.logger.Error(err)
-		}
-	}()
+	//go func() {
+	//	err = u.repo.SaveExe(key, result, u.expire)
+	//	if err != nil {
+	//		u.logger.Error(err)
+	//	}
+	//}()
+	err = u.repo.SaveExe(key, result, u.expire)
+	if err != nil {
+		u.logger.Error(err)
+	}
 
 	return bytes.NewReader(result), nil
 }
