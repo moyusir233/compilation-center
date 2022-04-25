@@ -1,14 +1,16 @@
 syntax = "proto3";
-package kratos.api;
+package internal.conf;
 
 option go_package = "gitee.com/moyusir/compilation-center/internal/conf;conf";
 
 import "google/protobuf/duration.proto";
+import "util/api/util/v1/general.proto";
 
 message Bootstrap {
   Server server = 1;
   Service service = 2;
   Data data = 3;
+  api.util.v1.LogLevel log_level = 4;
 }
 
 message Server {

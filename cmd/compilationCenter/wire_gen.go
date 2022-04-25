@@ -25,7 +25,7 @@ func initApp(confServer *conf.Server, confService *conf.Service, confData *conf.
 		return nil, nil, err
 	}
 	clientCodeRepo := data.NewRedisRepo(dataData, logger)
-	buildUsecase, cleanup2, err := biz.NewBuildUsecase(confService, clientCodeRepo, logger)
+	buildUsecase, err := biz.NewBuildUsecase(confService, clientCodeRepo, logger)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -34,7 +34,6 @@ func initApp(confServer *conf.Server, confService *conf.Service, confData *conf.
 	grpcServer := server.NewGRPCServer(confServer, buildService, logger)
 	app := newApp(logger, grpcServer)
 	return app, func() {
-		cleanup2()
 		cleanup()
 	}, nil
 }

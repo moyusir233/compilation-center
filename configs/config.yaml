@@ -1,3 +1,4 @@
+logLevel: INFO
 server:
   grpc:
     addr: 0.0.0.0:9000

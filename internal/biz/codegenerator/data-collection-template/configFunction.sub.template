@@ -38,7 +38,7 @@ func (s *ConfigService) CreateInitialConfigSaveStream{{.}}(conn pb.Config_Create
 
 		select {
 		case <-conn.Context().Done():
-			s.logger.Infof("关闭了 %v 的传输设备初始配置的grpc流", clientID)
+			s.logger.Infof("检测到了闲置或超时的连接,关闭了 %v 的传输设备初始配置的grpc流", clientID)
 			return nil
 		case <-recvCtx.Done():
 			if err == io.EOF {

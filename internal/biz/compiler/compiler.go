@@ -2,10 +2,8 @@ package compiler
 
 import (
 	"bytes"
-	"context"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
-	"golang.org/x/sync/errgroup"
 	"io"
 	"os"
 	"os/exec"
@@ -23,18 +21,8 @@ type Compiler struct {
 	apiDir string
 	// 相对于数据处理项目的根目录，存放其服务实现的目录的相对路径
 	serviceDir string
-	// 缓存的过期时间
-	timeout time.Duration
-	// 用于控制并发的读写锁
-	rwMutex *sync.RWMutex
-	// 存放编译结果的表
-	table map[string]*tableNode
-	// 管理协程的协程组
-	eg     *errgroup.Group
-	ctx    context.Context
-	cancel func()
-	// 用于复用bytes.Buffer的池
-	pool *sync.Pool
+	// 保证每次编译时项目文件夹只被一个协程占据的锁
+	mutex *sync.Mutex
 }
 
 type tableNode struct {
@@ -42,86 +30,23 @@ type tableNode struct {
 	ticker *time.Ticker
 }
 
-func NewCompiler(dir *conf.Service_Compiler_CodeDir, timeout time.Duration) *Compiler {
-	ctx, cancel := context.WithCancel(context.Background())
-
+func NewCompiler(dir *conf.Service_Compiler_CodeDir) *Compiler {
 	return &Compiler{
 		projectDir: dir.ProjectDir,
 		apiDir:     dir.ApiDir,
 		serviceDir: dir.ServiceDir,
-		timeout:    timeout,
-		rwMutex:    new(sync.RWMutex),
-		table:      make(map[string]*tableNode),
-		eg:         new(errgroup.Group),
-		ctx:        ctx,
-		cancel:     cancel,
-		pool: &sync.Pool{New: func() interface{} {
-			return bytes.NewBuffer(make([]byte, 0, 1024))
-		}},
+		mutex:      &sync.Mutex{},
 	}
-}
-func (c *Compiler) autoClearCache(key string) {
-	if node, ok := c.table[key]; ok {
-		defer node.ticker.Stop()
-		select {
-		case <-node.ticker.C:
-			// 超时，将使用的buffer放回池中，并删除掉key
-			c.rwMutex.Lock()
-			if node.buffer != nil {
-				node.buffer.Reset()
-				c.pool.Put(node.buffer)
-			}
-			delete(c.table, key)
-			c.rwMutex.Unlock()
-		case <-c.ctx.Done():
-			return
-		}
-	}
-}
-
-// Close 关闭还处于运行的所有计时器协程
-func (c *Compiler) Close() error {
-	c.cancel()
-	return c.eg.Wait()
-}
-
-// IsCompiled 查询指定的key是否已经编译过,若是则返回key对应的文件和true，否则返回nil和false
-func (c *Compiler) IsCompiled(key string) (*bytes.Reader, bool) {
-	c.rwMutex.RLock()
-	defer c.rwMutex.RUnlock()
-	// 先查询缓存
-	if node, ok := c.table[key]; ok {
-		node.ticker.Reset(c.timeout)
-		return bytes.NewReader(node.buffer.Bytes()), true
-	}
-	return nil, false
 }
 
 // Compile 以指定的key强制执行编译，若key已存在，会覆盖保存的缓存
-func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
-	exe *bytes.Reader, err error) {
+func (c *Compiler) Compile(code map[string]*bytes.Buffer) (
+	exe []byte, err error) {
 	// 执行编译，利用锁确保项目目录被单独的编译程序使用
-	c.rwMutex.Lock()
-	defer c.rwMutex.Unlock()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 
-	// 先查询缓存表，看是否需要再从池中取得buffer
-	var buffer *bytes.Buffer
-	if node, ok := c.table[key]; ok {
-		node.ticker.Reset(c.timeout)
-		buffer = node.buffer
-		buffer.Reset()
-	} else {
-		buffer = c.pool.Get().(*bytes.Buffer)
-		c.table[key] = &tableNode{
-			buffer: buffer,
-			ticker: time.NewTicker(c.timeout),
-		}
-		// 注册自动清理的协程
-		c.eg.Go(func() error {
-			c.autoClearCache(key)
-			return nil
-		})
-	}
+	buffer := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	// 执行编译
 	err = c.compileTo(code, buffer)
@@ -129,14 +54,7 @@ func (c *Compiler) Compile(key string, code map[string]*bytes.Buffer) (
 		return nil, err
 	}
 
-	defer func() {
-		// 当程序发生错误时，直接通过调用计时器清理掉节点和buffer
-		if err != nil {
-			c.table[key].ticker.Reset(time.Nanosecond)
-		}
-	}()
-
-	return bytes.NewReader(buffer.Bytes()), nil
+	return buffer.Bytes(), nil
 }
 
 // 通过执行shell完成编译
