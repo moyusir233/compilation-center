@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
 	"os"
 
@@ -42,13 +43,14 @@ func newApp(logger log.Logger, gs *grpc.Server) *kratos.App {
 
 func main() {
 	flag.Parse()
-	logger := util.NewJsonZapLoggerWarpper(Name)
-	helper := log.NewHelper(logger)
 
-	bc, err := conf.LoadConfig(flagconf, logger)
+	bc, err := conf.LoadConfig(flagconf, log.DefaultLogger)
 	if err != nil {
-		helper.Fatalf("导入配置时发生了错误:%v", err)
+		panic(fmt.Sprintf("导入配置时发生了错误:%v", err))
 	}
+
+	logger := util.NewJsonZapLoggerWarpper(Name, bc.LogLevel)
+	helper := log.NewHelper(logger)
 
 	app, cleanUp, err := initApp(bc.Server, bc.Service, bc.Data, logger)
 	if err != nil {
