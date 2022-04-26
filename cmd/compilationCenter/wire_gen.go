@@ -24,7 +24,11 @@ func initApp(confServer *conf.Server, confService *conf.Service, confData *conf.
 	if err != nil {
 		return nil, nil, err
 	}
-	clientCodeRepo := data.NewRedisRepo(dataData, logger)
+	clientCodeRepo, err := data.NewRedisRepo(dataData, logger)
+	if err != nil {
+		cleanup()
+		return nil, nil, err
+	}
 	buildUsecase, err := biz.NewBuildUsecase(confService, clientCodeRepo, logger)
 	if err != nil {
 		cleanup()

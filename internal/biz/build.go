@@ -39,7 +39,7 @@ type ClientCodeRepo interface {
 	// SaveExe 在redis中缓存编译得到的可执行文件
 	SaveExe(key string, reader io.ReadCloser, expire time.Duration) error
 	// GetExe 获得在redis缓存中保存的可执行文件
-	GetExe(key string) (io.Reader, error)
+	GetExe(key string) (io.ReadCloser, error)
 }
 
 func NewBuildUsecase(service *conf.Service, repo ClientCodeRepo, logger log.Logger) (*BuildUsecase, error) {
@@ -71,12 +71,12 @@ func (u *BuildUsecase) buildExe(
 		code map[string]*bytes.Buffer
 		c    *compiler.Compiler
 	)
+
 	// 由于账号注册失败时保存的编译缓存是无效的，因此先判断账号是否有效，有效才允许使用缓存
 	// （只有保存了客户端代码的账号，视作进行了稳定的编译，才能使用缓存）
-
 	exe, err := u.repo.GetExe(key)
 	if err == nil && u.repo.IsValid(username) {
-		return io.NopCloser(exe), nil
+		return exe, nil
 	}
 
 	// 缓存无效或未查询到，则重新生成代码并编译

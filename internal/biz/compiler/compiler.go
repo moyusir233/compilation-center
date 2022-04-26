@@ -2,12 +2,12 @@ package compiler
 
 import (
 	"bytes"
-	"fmt"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
@@ -66,7 +66,7 @@ func (c *Compiler) Compile(code map[string]*bytes.Buffer) (string, error) {
 		}
 	}
 
-	targetPath := filepath.Join(c.projectDir, fmt.Sprintf("%d", c.compileCount))
+	targetPath := filepath.Join(c.projectDir, strconv.Itoa(c.compileCount))
 
 	// 执行shell
 	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
