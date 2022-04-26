@@ -73,7 +73,8 @@ func (r *RedisRepo) IsValid(username string) bool {
 	return exist
 }
 
-func (r *RedisRepo) SaveExe(key string, content []byte, expire time.Duration) error {
+func (r *RedisRepo) SaveExe(key string, reader io.ReadCloser, expire time.Duration) error {
+	defer reader.Close()
 	// 将二进制文件经过gzip压缩后再保存到redis中
 	buffer := bytes.NewBuffer(make([]byte, 0, 1024))
 	gzipWriter, err := gzip.NewWriterLevel(buffer, gzip.BestCompression)
@@ -82,7 +83,7 @@ func (r *RedisRepo) SaveExe(key string, content []byte, expire time.Duration) er
 			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
 	}
 
-	_, err = gzipWriter.Write(content)
+	_, err = io.Copy(gzipWriter, reader)
 	if err != nil {
 		return errors.Newf(
 			500, "Save_Exe_Error", "将可执行文件进行gzip压缩时发生了错误:%s", err)
