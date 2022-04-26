@@ -11,6 +11,7 @@ import (
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-redis/redis/v8"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -104,7 +105,7 @@ func (r *RedisRepo) SaveExe(key string, reader io.ReadCloser, expire time.Durati
 	return nil
 }
 
-func (r *RedisRepo) GetExe(key string) ([]byte, error) {
+func (r *RedisRepo) GetExe(key string) (io.Reader, error) {
 	result, err := r.client.Get(context.Background(), key).Result()
 	if err != nil {
 		return nil, errors.Newf(
@@ -112,17 +113,11 @@ func (r *RedisRepo) GetExe(key string) ([]byte, error) {
 	}
 
 	// 解压
-	reader, err := gzip.NewReader(bytes.NewReader([]byte(result)))
+	reader, err := gzip.NewReader(strings.NewReader(result))
 	if err != nil {
 		return nil, errors.Newf(
 			500, "Save_Exe_Error", "将可执行文件进行gzip解压时发生了错误:%s", err)
 	}
 
-	exe, err := io.ReadAll(reader)
-	if err != nil {
-		return nil, errors.Newf(
-			500, "Save_Exe_Error", "将可执行文件进行gzip解压时发生了错误:%s", err)
-	}
-
-	return exe, nil
+	return reader, nil
 }

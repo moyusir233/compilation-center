@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"bytes"
+	"fmt"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
 	"os"
@@ -21,6 +22,8 @@ type Compiler struct {
 	serviceDir string
 	// 保证每次编译时项目文件夹只被一个协程占据的锁
 	mutex *sync.Mutex
+	// 编译计数，用来保证编译的文件名字不重复
+	compileCount int
 }
 
 func NewCompiler(dir *conf.Service_Compiler_CodeDir) *Compiler {
@@ -63,7 +66,7 @@ func (c *Compiler) Compile(code map[string]*bytes.Buffer) (string, error) {
 		}
 	}
 
-	targetPath := filepath.Join(c.projectDir, "bin", "server")
+	targetPath := filepath.Join(c.projectDir, fmt.Sprintf("%d", c.compileCount))
 
 	// 执行shell
 	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
@@ -75,6 +78,7 @@ func (c *Compiler) Compile(code map[string]*bytes.Buffer) (string, error) {
 			err, string(output),
 		)
 	}
+	c.compileCount++
 
 	// 返回编译后的文件的路径
 	return targetPath, nil
