@@ -10,7 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
 	"io/ioutil"
-	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -235,27 +235,20 @@ func TestCompilationCenter(t *testing.T) {
 
 	for i := 0; i < len(exes); i++ {
 		if !bytes.Equal(exes[i].Bytes(), caches[i].Bytes()) {
-			t.Fatal("第一次编译获得的可执行文件和通过缓存获得的可执行文件不一致")
+			t.Fatalf("第一次编译获得的可执行文件和通过缓存获得的可执行文件不一致:%d,%d",
+				len(exes[i].Bytes()), len(caches[i].Bytes()))
 		}
 	}
 }
 
 func TestTmp(t *testing.T) {
-	file, err := os.Open("util.go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
+	s := "hello,world"
+	t.Log([]byte(s))
 
-	all, err := ioutil.ReadAll(file)
+	reader := strings.NewReader(s)
+	all, err := ioutil.ReadAll(reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Log(len(all))
-
-	all, err = ioutil.ReadAll(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Log(len(all))
+	t.Log(all)
 }
