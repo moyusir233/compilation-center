@@ -1,4 +1,4 @@
-logLevel: INFO
+logLevel: DEBUG
 server:
   grpc:
     addr: 0.0.0.0:9000

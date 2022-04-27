@@ -1,7 +1,6 @@
 package test
 
 import (
-	"archive/zip"
 	"bytes"
 	"compress/gzip"
 	"context"
@@ -12,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 )
@@ -235,61 +235,51 @@ func TestCompilationCenter(t *testing.T) {
 	}
 
 	for i := 0; i < len(exes); i++ {
+		t.Logf("第一次:%d,第二次:%d", len(exes[i].Bytes()), len(caches[i].Bytes()))
 		if !bytes.Equal(exes[i].Bytes(), caches[i].Bytes()) {
-			t.Fatal("第一次编译获得的可执行文件和通过缓存获得的可执行文件不一致")
+			t.Error("第一次编译获得的可执行文件和通过缓存获得的可执行文件不一致")
 		}
 	}
 }
 
 func TestTmp(t *testing.T) {
-	file, err := ioutil.ReadFile("util.go")
+	file, err := os.Open("util.go")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer file.Close()
 
 	buffer := bytes.NewBuffer(nil)
-	zipWriter := zip.NewWriter(buffer)
-	writer, err := zipWriter.Create("test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = writer.Write(file)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = zipWriter.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("压缩前:%d,压缩后:%d", len(file), buffer.Len())
-
-	buffer.Reset()
 	gzipWriter, err := gzip.NewWriterLevel(buffer, gzip.BestCompression)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = gzipWriter.Write(file)
+
+	_, err = io.Copy(gzipWriter, file)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	err = gzipWriter.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("压缩前:%d,压缩后:%d", len(file), buffer.Len())
 
-	reader, err := gzip.NewReader(bytes.NewReader(buffer.Bytes()))
+	reader, err := gzip.NewReader(buffer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer reader.Close()
 
-	file2, err := ioutil.ReadAll(reader)
+	b, err := ioutil.ReadAll(reader)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
+	}
+	readFile, err := ioutil.ReadFile("util.go")
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	if !bytes.Equal(file, file2) {
-		t.Error("压缩前的文件和解压后的文件不一致")
+	if !bytes.Equal(b, readFile) {
+		t.Fatal("压缩后的文件和原来的文件不一致")
 	}
 }

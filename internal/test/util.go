@@ -4,6 +4,7 @@ import (
 	"context"
 	v1 "gitee.com/moyusir/compilation-center/api/compilationCenter/v1"
 	"gitee.com/moyusir/compilation-center/internal/conf"
+	"gitee.com/moyusir/compilation-center/internal/data"
 	"github.com/go-kratos/kratos/v2"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/go-kratos/kratos/v2/transport/grpc"
@@ -40,6 +41,15 @@ func StartCompilationCenterServer(t *testing.T) v1.BuildClient {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	redisClient, closeData, err := data.NewData(bootstrap.Data, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		redisClient.FlushDB(context.Background())
+		closeData()
+	})
 
 	app, cleanUp, err := initApp(bootstrap.Server, bootstrap.Service, bootstrap.Data, logger)
 	if err != nil {

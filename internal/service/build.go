@@ -21,6 +21,7 @@ func (b *BuildService) GetDataCollectionServiceProgram(request *v1.BuildRequest,
 	if err != nil {
 		return err
 	}
+	defer exe.Close()
 
 	reply := &v1.BuildReply{
 		Exe: make([]byte, 1024),
@@ -46,6 +47,7 @@ func (b *BuildService) GetDataProcessingServiceProgram(request *v1.BuildRequest,
 	if err != nil {
 		return err
 	}
+	defer exe.Close()
 
 	reply := &v1.BuildReply{
 		Exe: make([]byte, 1024),

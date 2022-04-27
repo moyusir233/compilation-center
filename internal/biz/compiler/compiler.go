@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	"github.com/go-kratos/kratos/v2/errors"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
-	"time"
 )
 
 // Compiler 负责编译服务代码，具有缓存功能
@@ -23,11 +22,8 @@ type Compiler struct {
 	serviceDir string
 	// 保证每次编译时项目文件夹只被一个协程占据的锁
 	mutex *sync.Mutex
-}
-
-type tableNode struct {
-	buffer *bytes.Buffer
-	ticker *time.Ticker
+	// 编译计数，用来保证编译的文件名字不重复
+	compileCount int
 }
 
 func NewCompiler(dir *conf.Service_Compiler_CodeDir) *Compiler {
@@ -39,26 +35,12 @@ func NewCompiler(dir *conf.Service_Compiler_CodeDir) *Compiler {
 	}
 }
 
-// Compile 以指定的key强制执行编译，若key已存在，会覆盖保存的缓存
-func (c *Compiler) Compile(code map[string]*bytes.Buffer) (
-	exe []byte, err error) {
+// Compile 通过执行shell完成编译
+func (c *Compiler) Compile(code map[string]*bytes.Buffer) (string, error) {
 	// 执行编译，利用锁确保项目目录被单独的编译程序使用
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
 
-	buffer := bytes.NewBuffer(make([]byte, 0, 1024))
-
-	// 执行编译
-	err = c.compileTo(code, buffer)
-	if err != nil {
-		return nil, err
-	}
-
-	return buffer.Bytes(), nil
-}
-
-// 通过执行shell完成编译
-func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer) error {
 	// 为了进行编译，首先需要将生成的代码先写入到文件中
 	apiDirPath := filepath.Join(c.projectDir, c.apiDir)
 	serviceDirPath := filepath.Join(c.projectDir, c.serviceDir)
@@ -72,42 +54,32 @@ func (c *Compiler) compileTo(code map[string]*bytes.Buffer, result *bytes.Buffer
 		}
 		file, err := os.Create(path)
 		if err != nil {
-			return err
+			return "", err
 		}
 		_, err = v.WriteTo(file)
 		if err != nil {
-			return err
+			return "", err
 		}
 		err = file.Close()
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	targetPath := filepath.Join(c.projectDir, "bin", "server")
+	targetPath := filepath.Join(c.projectDir, strconv.Itoa(c.compileCount))
 
 	// 执行shell
 	cmd := exec.Command("/shell/build.sh", c.projectDir, targetPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.Newf(500,
+		return "", errors.Newf(500,
 			"failed to exec the shell of build",
 			"%s\n%s",
 			err, string(output),
 		)
 	}
+	c.compileCount++
 
-	// 执行完毕后将编译结果写入buffer
-	file, err := os.Open(targetPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(result, file)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	// 返回编译后的文件的路径
+	return targetPath, nil
 }

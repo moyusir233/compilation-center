@@ -2,14 +2,22 @@ package biz
 
 import (
 	"bytes"
+	"fmt"
 	"gitee.com/moyusir/compilation-center/internal/biz/codegenerator"
 	"gitee.com/moyusir/compilation-center/internal/biz/compiler"
 	"gitee.com/moyusir/compilation-center/internal/conf"
 	utilApi "gitee.com/moyusir/util/api/util/v1"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	"io"
+	"os"
 	"strings"
 	"time"
+)
+
+const (
+	DataCollectionSvcType = iota
+	DataProcessSvcType
 )
 
 type BuildUsecase struct {
@@ -29,9 +37,9 @@ type ClientCodeRepo interface {
 	// IsValid 判断账号是否已经有效，是为了避免在账号已经注销的情况下使用了无效的编译缓存
 	IsValid(username string) bool
 	// SaveExe 在redis中缓存编译得到的可执行文件
-	SaveExe(key string, content []byte, expire time.Duration) error
+	SaveExe(key string, reader io.ReadCloser, expire time.Duration) error
 	// GetExe 获得在redis缓存中保存的可执行文件
-	GetExe(key string) ([]byte, error)
+	GetExe(key string) (io.ReadCloser, error)
 }
 
 func NewBuildUsecase(service *conf.Service, repo ClientCodeRepo, logger log.Logger) (*BuildUsecase, error) {
@@ -55,99 +63,95 @@ func NewBuildUsecase(service *conf.Service, repo ClientCodeRepo, logger log.Logg
 	}, nil
 }
 
-// BuildDCServiceExe 编译数据收集服务的二进制程序，并将生成的客户端proto文件以zip形式保存到数据库中
-func (u *BuildUsecase) BuildDCServiceExe(
-	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
-	*bytes.Reader, error) {
+func (u *BuildUsecase) buildExe(
+	username string, svcType int, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
+	io.ReadCloser, error) {
+	var (
+		key  = fmt.Sprintf("%s-%d", username, svcType)
+		code map[string]*bytes.Buffer
+		c    *compiler.Compiler
+	)
+
 	// 由于账号注册失败时保存的编译缓存是无效的，因此先判断账号是否有效，有效才允许使用缓存
 	// （只有保存了客户端代码的账号，视作进行了稳定的编译，才能使用缓存）
-	key := username + "-dc"
 	exe, err := u.repo.GetExe(key)
 	if err == nil && u.repo.IsValid(username) {
-		return bytes.NewReader(exe), nil
+		return exe, nil
 	}
 
 	// 缓存无效或未查询到，则重新生成代码并编译
-	dc, err := u.generator.GetDataCollectionServiceFiles(configs, states)
-	if err != nil {
-		return nil, errors.Newf(
-			500, "Biz_Error", "生成数据收集服务代码时发生了错误:%v", err)
-	}
-
-	// 在后台保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
-	files := make(map[string]*bytes.Reader)
-	for k, v := range dc {
-		if strings.HasSuffix(k, ".proto") {
-			files[k] = bytes.NewReader(v.Bytes())
-		}
-	}
-	go func() {
-		// 这里保存文件的错误不返回，避免影响服务容器的启动
-		err = u.repo.SaveClientCode(username, files)
+	if svcType == DataCollectionSvcType {
+		code, err = u.generator.GetDataCollectionServiceFiles(configs, states)
 		if err != nil {
-			u.logger.Error(err)
+			return nil, err
 		}
-	}()
 
-	// 编译获得可执行程序
-	result, err := u.dcCompiler.Compile(dc)
-	if err != nil {
-		return nil, errors.Newf(
-			500, "Biz_Error", "编译数据收集服务代码时发生了错误:%v", err)
+		// 在后台保存客户端代码，以用户名为field在以client_code为键名中的hash中保存
+		files := make(map[string]*bytes.Reader)
+		for k, v := range code {
+			if strings.HasSuffix(k, ".proto") {
+				files[k] = bytes.NewReader(v.Bytes())
+			}
+		}
+		go func() {
+			// 这里保存文件的错误不返回，避免影响服务容器的启动
+			err = u.repo.SaveClientCode(username, files)
+			if err != nil {
+				u.logger.Error(err)
+			}
+		}()
+
+		c = u.dcCompiler
+	} else {
+		code, err = u.generator.GetDataProcessingServiceFiles(configs, states)
+		if err != nil {
+			return nil, err
+		}
+
+		c = u.dpCompiler
 	}
 
-	// 将可执行程序保存到redis缓存中
-	//go func() {
-	//	err = u.repo.SaveExe(key, result, u.expire)
-	//	if err != nil {
-	//		u.logger.Error(err)
-	//	}
-	//}()
+	// 编译获得可执行程序的路径
+	path, err := c.Compile(code)
+	if err != nil {
+		return nil, err
+	}
+	result, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
 	err = u.repo.SaveExe(key, result, u.expire)
 	if err != nil {
 		u.logger.Error(err)
 	}
 
-	return bytes.NewReader(result), nil
+	// 由于文件不能重复读写，这里需要重新打开一次文件
+	return os.Open(path)
+}
+
+// BuildDCServiceExe 编译数据收集服务的二进制程序，并将生成的客户端proto文件以zip形式保存到数据库中
+func (u *BuildUsecase) BuildDCServiceExe(
+	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
+	io.ReadCloser, error) {
+	readCloser, err := u.buildExe(username, DataCollectionSvcType, states, configs)
+	if err != nil {
+		return nil, errors.Newf(500, "Biz_Build_Error",
+			"编译数据收集服务的可执行程序时发生了错误:%s", err)
+	}
+
+	return readCloser, nil
 }
 
 // BuildDPServiceExe 编译数据处理服务的二进制程序
 func (u *BuildUsecase) BuildDPServiceExe(
 	username string, states []*utilApi.DeviceStateRegisterInfo, configs []*utilApi.DeviceConfigRegisterInfo) (
-	*bytes.Reader, error) {
-	// 由于账号注册失败时保存的编译缓存是无效的，因此先判断账号是否有效，有效才允许使用缓存
-	// （只有保存了客户端代码的账号，视作进行了稳定的编译，才能使用缓存）
-	key := username + "-dp"
-	exe, err := u.repo.GetExe(key)
-	if err == nil && u.repo.IsValid(username) {
-		return bytes.NewReader(exe), nil
-	}
-
-	// 缓存无效或未查询到，则重新生成代码并编译
-	dp, err := u.generator.GetDataProcessingServiceFiles(configs, states)
+	io.ReadCloser, error) {
+	readCloser, err := u.buildExe(username, DataProcessSvcType, states, configs)
 	if err != nil {
-		return nil, errors.Newf(
-			500, "Biz_Error", "生成数据处理服务代码时发生了错误:%v", err)
+		return nil, errors.Newf(500, "Biz_Build_Error",
+			"编译数据处理服务的可执行程序时发生了错误:%s", err)
 	}
 
-	// 编译获得可执行程序
-	result, err := u.dpCompiler.Compile(dp)
-	if err != nil {
-		return nil, errors.Newf(
-			500, "Biz_Error", "编译数据收集服务代码时发生了错误:%v", err)
-	}
-
-	// 将可执行程序保存到redis缓存中
-	//go func() {
-	//	err = u.repo.SaveExe(key, result, u.expire)
-	//	if err != nil {
-	//		u.logger.Error(err)
-	//	}
-	//}()
-	err = u.repo.SaveExe(key, result, u.expire)
-	if err != nil {
-		u.logger.Error(err)
-	}
-
-	return bytes.NewReader(result), nil
+	return readCloser, nil
 }
